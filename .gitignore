@@ -1,0 +1,72 @@
+# ========================
+#  Python
+# ========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+*.whl
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# ========================
+#  Data & Artifacts
+# ========================
+# Raw competition data (large CSVs)
+datastorm-v7/raw_data/*.csv
+
+# Medallion data lake (Parquet artifacts tracked by DVC)
+datastorm-v7/data/bronze/*.parquet
+datastorm-v7/data/silver/*.parquet
+datastorm-v7/data/silver/rejected/*.parquet
+datastorm-v7/data/gold/*.parquet
+
+# Cached POI dataset
+datastorm-v7/scraping/sri_lanka_pois.parquet
+
+# ========================
+#  MLflow
+# ========================
+datastorm-v7/mlflow.db
+mlruns/
+mlartifacts/
+
+# ========================
+#  DVC
+# ========================
+*.dvc
+!/datastorm-v7/.dvc/.gitignore
+datastorm-v7/.dvc/tmp/
+
+# ========================
+#  ZenML
+# ========================
+datastorm-v7/.zen/local_stores/
+
+# ========================
+#  IDE & OS
+# ========================
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.ipynb_checkpoints/
+
+# ========================
+#  Jupyter
+# ========================
+.ipynb_checkpoints/
+
+# ========================
+#  Outputs
+# ========================
+datastorm-v7/outputs/

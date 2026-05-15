@@ -1,0 +1,14 @@
+# params.yaml
+data:
+  raw_dir: "raw_data"
+  bronze_dir: "data/bronze"
+  silver_dir: "data/silver"
+  gold_dir: "data/gold"
+
+cleaning:
+  max_volume_liters: 50000
+  min_volume_liters: 0
+
+modeling:
+  quantile_alpha: 0.90
+  random_state: 42
