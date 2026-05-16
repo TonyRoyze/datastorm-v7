@@ -38,23 +38,29 @@ DataStorm v7 ingests raw transactional and geospatial data from Sri Lanka's FMCG
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                        ZenML Pipeline                               │
-│                                                                     │
-│  ┌──────────────┐   ┌───────────────┐   ┌────────────────────────┐ │
-│  │    BRONZE     │   │    SILVER     │   │         GOLD           │ │
-│  │              │   │               │   │                        │ │
-│  │  Raw CSV →   │──▶│  DQ Checks &  │──▶│  Spatial Enrichment    │ │
-│  │  Parquet     │   │  Quarantine   │   │  + Master Merge        │ │
-│  │              │   │               │   │                        │ │
-│  └──────────────┘   └───────────────┘   └────────────────────────┘ │
-│                            │                       │                │
-│                      ┌─────▼─────┐          ┌──────▼──────┐        │
-│                      │  MLflow   │          │ OSM / POI   │        │
-│                      │  Tracking │          │  Overpass   │        │
-│                      └───────────┘          └─────────────┘        │
-└─────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart LR
+    subgraph Z["ZenML Pipeline"]
+        direction LR
+
+        subgraph B["BRONZE"]
+            B1["Raw CSV → Parquet"]
+        end
+
+        subgraph S["SILVER"]
+            S1["DQ Checks & Quarantine"]
+        end
+
+        subgraph G["GOLD"]
+            G1["Spatial Enrichment<br/>+ Master Merge"]
+        end
+
+        B1 --> S1
+        S1 --> G1
+
+        S1 --> M["MLflow<br/>Tracking"]
+        G1 --> O["OSM / POI<br/>Overpass"]
+    end
 ```
 
 ---
@@ -136,9 +142,9 @@ Enriches outlet profiles with nearby point-of-interest counts from OpenStreetMap
 
 Forges the final training-ready feature matrix by joining:
 
-- ✅ Cleaned transaction aggregates (total volume, avg transaction size, count)
-- ✅ Outlet master attributes
-- ✅ Spatial POI features
+- Cleaned transaction aggregates (total volume, avg transaction size, count)
+- Outlet master attributes
+- Spatial POI features
 
 Applies smart imputation (numeric → 0, categorical → "Unknown") and saves as `data/gold/master_training_data.parquet`.
 
