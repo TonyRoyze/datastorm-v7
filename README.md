@@ -149,6 +149,5 @@ typst compile report/main.typ --root .
 
 ## Team — Ctrl Freaks
 
-- **Prabhavi Hemachandra** — Ingestion, SFA, Report Synthesis
 - **Sukitha Rathnayake** — MLOps, DQ Forensics, Ensemble Logic
 - **Vidura Gunawardana** — Pipeline Architecture, Turing RD, Tobit Modeling
