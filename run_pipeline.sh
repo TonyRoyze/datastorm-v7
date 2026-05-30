@@ -5,6 +5,22 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 VENV_DIR="${SCRIPT_DIR}/.venv"
 REQS="${SCRIPT_DIR}/requirements.txt"
 
+# ── Parse --start-from flag ─────────────────────────────────────
+START_PHASE=1
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --start-from)
+            START_PHASE="$2"
+            shift 2
+            ;;
+        *)
+            echo "Usage: $0 [--start-from N]"
+            echo "  --start-from N   Start from phase N (1-10)"
+            exit 1
+            ;;
+    esac
+done
+
 echo "Setting up Python environment..."
 
 if command -v uv &> /dev/null; then
@@ -15,7 +31,7 @@ if command -v uv &> /dev/null; then
     source "${VENV_DIR}/bin/activate"
     uv pip install -r "$REQS"
 else
-    echo "  uv not found  falling back to pip + venv"
+    echo "  uv not found — falling back to pip + venv"
     if [ ! -d "$VENV_DIR" ]; then
         python3 -m venv "$VENV_DIR"
     fi
@@ -24,15 +40,99 @@ else
 fi
 
 PYTHON="${VENV_DIR}/bin/python3"
+export PYTHONPATH="$SCRIPT_DIR"
 
-echo "Phase 1: Exploratory Data Analysis (Simple)"
-${PYTHON} "$SCRIPT_DIR/src/eda/eda_simple.py"
+should_run() {
+    [ "$START_PHASE" -le "$1" ]
+}
 
-echo "Phase 2: Exploratory Data Analysis (Spatial)"
-${PYTHON} "$SCRIPT_DIR/src/eda/eda_advanced.py"
+phase_header() {
+    echo ""
+    echo "============================================"
+    echo "Phase $1: $2"
+    echo "============================================"
+}
 
-echo "Phase 3: Turing Reaction-Diffusion Simulation"
-${PYTHON} "$SCRIPT_DIR/src/gold/turing_rd.py"
+if should_run 1; then phase_header 1 "BRONZE — Raw Ingestion"; ${PYTHON} "${SCRIPT_DIR}/pipeline/bronze_ingestion.py"; else echo "  [SKIP] Phase 1"; fi
 
-echo "Phase 4: Latent Demand Estimation"
-${PYTHON} "$SCRIPT_DIR/src/model/latent_demand.py"
+if should_run 2; then phase_header 2 "SILVER — Data Quality & Cleaning"; ${PYTHON} "${SCRIPT_DIR}/pipeline/silver_cleaning.py"; else echo "  [SKIP] Phase 2"; fi
+
+if should_run 3; then phase_header 3 "GOLD (POI) — Spatial Enrichment"; ${PYTHON} "${SCRIPT_DIR}/scraping/poi_processor.py"; else echo "  [SKIP] Phase 3"; fi
+
+if should_run 4; then phase_header 4 "GOLD (RD) — Turing Reaction-Diffusion"; ${PYTHON} "${SCRIPT_DIR}/src/gold/turing_rd.py"; else echo "  [SKIP] Phase 4"; fi
+
+if should_run 5; then phase_header 5 "GOLD (Merge) — Feature Assembly"; ${PYTHON} "${SCRIPT_DIR}/pipeline/gold_merger.py"; else echo "  [SKIP] Phase 5"; fi
+
+if should_run 6; then phase_header 6 "MODEL — Latent Demand Estimation"; ${PYTHON} "${SCRIPT_DIR}/src/model/latent_demand.py"; else echo "  [SKIP] Phase 6"; fi
+
+if should_run 7; then phase_header 7 "SPEND — Budget Optimization"; ${PYTHON} "${SCRIPT_DIR}/src/spend/optimizer.py"; else echo "  [SKIP] Phase 7"; fi
+
+if should_run 8; then
+    phase_header 8 "EXPORT — JSON + Web Assets"
+    mkdir -p "${SCRIPT_DIR}/web/public/data"
+    ${PYTHON} -c "
+import pandas as pd, json, os
+
+# Export coordinates CSV with slight longitude shift (+0.01)
+outlets = pd.read_parquet('${SCRIPT_DIR}/data/silver/outlets.parquet')
+coords = pd.read_parquet('${SCRIPT_DIR}/data/silver/coordinates.parquet')
+merged = outlets[['Outlet_ID']].merge(coords, on='Outlet_ID', how='left')
+merged['Longitude'] = merged['Longitude'] + 0.01
+merged.to_csv('${SCRIPT_DIR}/data/raw/outlet_coordinates.csv', index=False)
+print(f'Coordinates CSV: {len(merged)} rows (Longitude shifted +0.01)')
+
+# Convert predictions to JSON
+pred_path = '${SCRIPT_DIR}/data/predictions/ctrl_freaks_predictions.csv'
+if os.path.exists(pred_path):
+    pred = pd.read_csv(pred_path)
+    pred.to_json('${SCRIPT_DIR}/web/public/data/predictions.json', orient='records')
+    pred.to_csv('${SCRIPT_DIR}/web/public/data/predictions.csv', index=False)
+    print(f'Predictions: {len(pred)} rows')
+else:
+    print(f'  [WARN] Predictions not found: {pred_path}')
+
+# Convert budget to JSON (with Spend_Type column)
+budget_path = '${SCRIPT_DIR}/data/budget/ctrl_freaks_budget_allocations.csv'
+if os.path.exists(budget_path):
+    budget = pd.read_csv(budget_path)
+    budget.to_json('${SCRIPT_DIR}/web/public/data/budget_allocations.json', orient='records')
+    budget.to_csv('${SCRIPT_DIR}/web/public/data/budget_allocations.csv', index=False)
+    print(f'Budget: {len(budget)} rows')
+else:
+    print(f'  [WARN] Budget not found: {budget_path}')
+
+# Convert coordinates to JSON
+coords_path = '${SCRIPT_DIR}/data/raw/outlet_coordinates.csv'
+if os.path.exists(coords_path):
+    coords_df = pd.read_csv(coords_path)
+    coords_df.to_json('${SCRIPT_DIR}/web/public/data/outlet_coordinates.json', orient='records')
+    coords_df.to_csv('${SCRIPT_DIR}/web/public/data/outlet_coordinates.csv', index=False)
+    print(f'Coordinates: {len(coords_df)} rows')
+else:
+    print(f'  [WARN] Coordinates not found: {coords_path}')
+"
+else echo "  [SKIP] Phase 8"; fi
+
+if should_run 9; then
+    phase_header 9 "OUTPUT — Validation"
+    echo "  Checking predictions..."
+    if [ -f "${SCRIPT_DIR}/data/predictions/ctrl_freaks_predictions.csv" ]; then
+        LINES=$(wc -l < "${SCRIPT_DIR}/data/predictions/ctrl_freaks_predictions.csv")
+        echo "  predictions: $((LINES - 1)) rows"
+    else
+        echo "  [WARN] predictions not found"
+    fi
+    if [ -f "${SCRIPT_DIR}/data/budget/ctrl_freaks_budget_allocations.csv" ]; then
+        LINES=$(wc -l < "${SCRIPT_DIR}/data/budget/ctrl_freaks_budget_allocations.csv")
+        echo "  budget_allocations: $((LINES - 1)) rows"
+    else
+        echo "  [WARN] budget_allocations not found at data/budget/"
+    fi
+else
+    echo "  [SKIP] Phase 10"
+fi
+
+echo ""
+echo "============================================"
+echo "Pipeline complete!"
+echo "============================================"

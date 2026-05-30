@@ -1,6 +1,9 @@
 import pandas as pd
-import os
-from zenml import step
+import os, yaml
+try:
+    from zenml import step
+except ImportError:
+    step = lambda f: f
 
 @step
 def create_gold_master_table(
@@ -48,3 +51,16 @@ def create_gold_master_table(
     
     print(f"[Gold] Master Table Created: {final_df.shape[0]} rows, {final_df.shape[1]} features.")
     return final_df
+
+
+if __name__ == "__main__":
+    with open("params.yaml") as f:
+        params = yaml.safe_load(f)
+    silver_dir = params['data']['silver_dir']
+    gold_dir = params['data']['gold_dir']
+    create_gold_master_table(
+        transactions_path=os.path.join(silver_dir, "sales.parquet"),
+        outlet_master_path=os.path.join(silver_dir, "outlets.parquet"),
+        spatial_feat_path=os.path.join(gold_dir, "spatial_features.parquet"),
+        out_path=os.path.join(gold_dir, "master_training_data.parquet"),
+    )

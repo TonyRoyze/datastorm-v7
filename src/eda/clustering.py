@@ -54,9 +54,9 @@ n_swapped = swap_mask.sum()
 if n_swapped > 0:
     df.loc[swap_mask, ["Latitude", "Longitude"]] = df.loc[swap_mask, ["Longitude", "Latitude"]].values
 
-oob_mask = ~(df["Latitude"].between(SL_LAT_MIN, SL_LAT_MAX) & df["Longitude"].between(SL_LON_MIN, SL_LON_MAX))
+oob_mask = np.invert(df["Latitude"].between(SL_LAT_MIN, SL_LAT_MAX) & df["Longitude"].between(SL_LON_MIN, SL_LON_MAX))
 n_oob = oob_mask.sum()
-df_valid = df[~oob_mask].copy()
+df_valid = df.loc[np.invert(oob_mask)].copy()
 print(f"  {n_swapped} swapped, {n_oob} OOB  {len(df_valid)}/{len(df)} valid")
 
 print("[3/5] KMeans spatial clustering...")

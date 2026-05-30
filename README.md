@@ -38,21 +38,21 @@ Ctrl Freaks' solution addresses the "min(Demand, Constraint)" problem. Observed 
 
 ```mermaid
 graph TD
-    subgraph A["Agent A (Bronze)"]
+    subgraph A["(Bronze)"]
         A1[Raw CSV Ingestion] --> A2[Parquet Conversion]
     end
 
-    subgraph B["Agent B (Silver)"]
+    subgraph B["(Silver)"]
         B1[DQ Audits] --> B2[Quarantine Pattern]
         B2 --> B3[Flatline Forensic Check]
     end
 
-    subgraph C["Agent C (Gold)"]
+    subgraph C["(Gold)"]
         C1[OSM POI Scraper] --> C2[Turing RD Simulation]
         C2 --> C3[Feature Engineering]
     end
 
-    subgraph D["Agent D (Model)"]
+    subgraph D["(Model)"]
         D1[Censoring Threshold Logic] --> D2[Tobit GBR Ensemble]
         D2 --> D3[SFA & Peer Uplift]
     end
@@ -61,6 +61,12 @@ graph TD
     B3 --> C1
     C3 --> D1
     D3 --> F[Final CSV Predictions]
+
+    subgraph G["(Web App)"]
+        F --> G1[Export JSON]
+        G1 --> G2[Next.js + react-leaflet]
+        G2 --> G3[Map / Table / Detail]
+    end
 ```
 
 ---
@@ -78,11 +84,18 @@ graph TD
 │   ├── main.typ              # Entry point
 │   └── sections/             # Modular chapters
 ├── src/
-│   ├── bronze/               # Agent A: Ingestion
-│   ├── silver/               # Agent B: DQ & Forensics
-│   ├── gold/                 # Agent C: POIs & Turing RD
-│   ├── model/                # Agent D: Latent Demand Modeling
+│   ├── bronze/               # Ingestion
+│   ├── silver/               # DQ & Forensics
+│   ├── gold/                 # POIs & Turing RD
+│   ├── model/                # Latent Demand Modeling
 │   └── eda/                  # Analysis & Diagnostic Scripts
+├── web/                      # Outlet Intelligence Web App
+│   ├── src/
+│   │   ├── app/              # Next.js pages + API routes
+│   │   ├── components/       # React components
+│   │   └── lib/              # Types + utils
+│   ├── scripts/              # Data export script
+│   └── public/data/          # Generated outlet JSON
 ├── outputs/                  # Diagnostic Visualizations
 ├── run_pipeline.sh           # End-to-End Runner
 └── params.yaml               # Pipeline configuration
@@ -92,17 +105,17 @@ graph TD
 
 ## Pipeline Stages
 
-### 1️⃣ Agent A — Bronze (Ingestion)
+### 1️⃣ Bronze (Ingestion)
 Converts raw CSV streams into type-strict Parquet structures, preserving $100\%$ of source signals with zero-loss compression.
 
-### 2️⃣ Agent B — Silver (Forensics)
+### 2️⃣ Silver (Forensics)
 Applies a **Quarantine Pattern** to trap anomalies. Implements the **Historical Flatline Check** to detect outlets whose sales are artificially capped by credit or delivery cycles.
 
-### 3️⃣ Agent C — Gold (Feature Engineering)
+### 3️⃣ Gold (Feature Engineering)
 - **Overpass Scraper**: Fetches nationwide POI data (Schools, Markets, Bus Stations).
 - **Turing RD**: Runs a 500-step Gray-Scott simulation to derive the `rd_demand_pressure` spatial activator feature.
 
-### 4️⃣ Agent D — Model (Latent Estimation)
+### 4️⃣ Model (Latent Estimation)
 - **Tobit Ensemble**: A 50/30/20 weighted ensemble of Censored Gradient Boosting, Stochastic Frontier Analysis (SFA), and Peer-Group Uplift.
 - **January Adjustment**: Applies a seasonal index to account for peak demand cycles.
 
@@ -112,12 +125,18 @@ Applies a **Quarantine Pattern** to trap anomalies. Implements the **Historical 
 
 ### Prerequisites
 - Python 3.9+
+- Node.js 20+ (for the web app)
+- npm 9+ (for the web app)
 - [Typst](https://typst.app/) (for report generation)
 - [ZenML](https://zenml.io) (optional, orchestrator-agnostic)
 
 ### Installation
 ```bash
+# Python dependencies
 pip install pandas numpy scipy scikit-learn matplotlib seaborn pyarrow geopandas
+
+# Web app dependencies
+npm install --prefix web
 ```
 
 ### Running the Full Pipeline
@@ -126,6 +145,25 @@ The provided shell script executes the end-to-end flow from data ingestion to fi
 ```bash
 chmod +x run_pipeline.sh
 ./run_pipeline.sh
+```
+
+### Running the Web App
+The Outlet Intelligence Web App visualizes predictions on an interactive map:
+
+```bash
+# 1. Activate Python environment and export data
+source .venv/bin/activate
+python3 web/scripts/export-data.py
+
+# 2. Start Next.js dev server
+npm run dev --prefix web
+# → http://localhost:3000
+```
+
+To build for production:
+```bash
+npm run build --prefix web
+npm run start --prefix web
 ```
 
 ### Compiling the Report
@@ -143,6 +181,7 @@ typst compile report/main.typ --root .
 | **Pipeline** | ZenML, DVC, Apache Arrow |
 | **Analysis** | Pandas, SciPy, Scikit-Learn |
 | **Spatial** | GeoPandas, Overpass API, Shapely |
+| **Web App** | Next.js 16, shadcn/ui, react-leaflet, Leaflet |
 | **Reporting** | Mermaid.js |
 
 ---

@@ -22,11 +22,14 @@ env/
 # Raw competition data (large CSVs)
 raw_data/*.csv
 
-# Medallion data lake (Data committed directly to GitHub as requested)
-# data/bronze/*.parquet
-# data/silver/*.parquet
-# data/silver/rejected/*.parquet
-# data/gold/*.parquet
+# Medallion data lake (large files excluded from git)
+data/raw/
+data/bronze/
+data/silver/
+data/gold/
+data/output/
+data/budget/
+data/predictions/
 
 # Cached POI dataset
 scraping/sri_lanka_pois.parquet
@@ -75,3 +78,7 @@ Agents.md
 TuringPattern.md
 report/
 report.md
+Plan.md
+problem.md
+Problem Statement - 2nd Round.pdf
+BUDGET_METHODOLOGY.md

@@ -43,7 +43,7 @@ def datastorm_v7_pipeline():
     # --- PHASE 2: SILVER (Cleaning & DQ) ---
     # Performs Data Quality checks and quarantines "Dirty" data
     # We pass bronze_stats to create a dependency link in ZenML
-    silver_stats = clean_silver(bronze_stats)
+    silver_stats = clean_silver(bronze_dir=bronze_dir, silver_dir=silver_dir, params=params)
     
     # --- PHASE 3: GOLD (Spatial Enrichment) ---
     # Vectorsize spatial joins with OpenStreetMap POIs
