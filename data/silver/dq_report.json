@@ -1,0 +1,20 @@
+{
+  "sales": {
+    "initial_rows": 2376389,
+    "clean_rows": 2327523,
+    "flatline_outlets": 0
+  },
+  "outlets": {
+    "clean_rows": 20000,
+    "constraint_flagged": 0
+  },
+  "coordinates": {
+    "clean_rows": 19760
+  },
+  "seasonality": {
+    "clean_rows": 360
+  },
+  "holidays": {
+    "clean_rows": 349
+  }
+}
