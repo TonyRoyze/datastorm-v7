@@ -73,12 +73,13 @@ if should_run 8; then
     ${PYTHON} -c "
 import pandas as pd, json, os
 
-# Export coordinates CSV
+# Export coordinates CSV with slight longitude shift (+0.01)
 outlets = pd.read_parquet('${SCRIPT_DIR}/data/silver/outlets.parquet')
 coords = pd.read_parquet('${SCRIPT_DIR}/data/silver/coordinates.parquet')
 merged = outlets[['Outlet_ID']].merge(coords, on='Outlet_ID', how='left')
-merged.to_csv('${SCRIPT_DIR}/outlet_coordinates.csv', index=False)
-print(f'Coordinates CSV: {len(merged)} rows')
+merged['Longitude'] = merged['Longitude'] + 0.01
+merged.to_csv('${SCRIPT_DIR}/data/raw/outlet_coordinates.csv', index=False)
+print(f'Coordinates CSV: {len(merged)} rows (Longitude shifted +0.01)')
 
 # Convert predictions to JSON
 pred_path = '${SCRIPT_DIR}/data/predictions/ctrl_freaks_predictions.csv'
@@ -90,7 +91,7 @@ if os.path.exists(pred_path):
 else:
     print(f'  [WARN] Predictions not found: {pred_path}')
 
-# Convert budget to JSON
+# Convert budget to JSON (with Spend_Type column)
 budget_path = '${SCRIPT_DIR}/data/budget/ctrl_freaks_budget_allocations.csv'
 if os.path.exists(budget_path):
     budget = pd.read_csv(budget_path)
@@ -101,7 +102,7 @@ else:
     print(f'  [WARN] Budget not found: {budget_path}')
 
 # Convert coordinates to JSON
-coords_path = '${SCRIPT_DIR}/outlet_coordinates.csv'
+coords_path = '${SCRIPT_DIR}/data/raw/outlet_coordinates.csv'
 if os.path.exists(coords_path):
     coords_df = pd.read_csv(coords_path)
     coords_df.to_json('${SCRIPT_DIR}/web/public/data/outlet_coordinates.json', orient='records')
