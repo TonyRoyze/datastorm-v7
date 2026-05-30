@@ -77,9 +77,9 @@ import pandas as pd, json, os
 outlets = pd.read_parquet('${SCRIPT_DIR}/data/silver/outlets.parquet')
 coords = pd.read_parquet('${SCRIPT_DIR}/data/silver/coordinates.parquet')
 merged = outlets[['Outlet_ID']].merge(coords, on='Outlet_ID', how='left')
-merged['Longitude'] = merged['Longitude'] + 0.01
+merged['Longitude'] = merged['Longitude']  # no shift — silver already has correct Sri Lanka coords
 merged.to_csv('${SCRIPT_DIR}/data/raw/outlet_coordinates.csv', index=False)
-print(f'Coordinates CSV: {len(merged)} rows (Longitude shifted +0.01)')
+print(f'Coordinates CSV: {len(merged)} rows')
 
 # Convert predictions to JSON
 pred_path = '${SCRIPT_DIR}/data/predictions/ctrl_freaks_predictions.csv'
@@ -92,7 +92,7 @@ else:
     print(f'  [WARN] Predictions not found: {pred_path}')
 
 # Convert budget to JSON (with Spend_Type column)
-budget_path = '${SCRIPT_DIR}/data/budget/ctrl_freaks_budget_allocations.csv'
+budget_path = '${SCRIPT_DIR}/data/budget/ctrl_freaks_budget_mapping.csv'
 if os.path.exists(budget_path):
     budget = pd.read_csv(budget_path)
     budget.to_json('${SCRIPT_DIR}/web/public/data/budget_allocations.json', orient='records')
