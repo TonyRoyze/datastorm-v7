@@ -34,7 +34,7 @@ D_B = 0.08  # Saturation diffusion (fast  competition spreads)
 F = 0.035  # Feed rate
 k = 0.065  # Kill rate
 dt = 1.0  # Time step
-T = 500  # Iterations (reduced from 1000 for speed; sufficient for convergence)
+T = 500  # Iterations
 
 # ── Create a land mask (only simulate where outlets exist) ─────────
 # Dilate the occupied cells by 5 cells to allow diffusion
@@ -82,8 +82,8 @@ for t in range(T):
 
     if (t + 1) % 100 == 0:
         print(
-            f"  Step {t + 1}/{T}  A range: [{A.min():.4f}, {A.max():.4f}], "
-            f"B range: [{B.min():.4f}, {B.max():.4f}]"
+            f"  Step {t + 1}/{T}  A range: [{A.min():.4f}, {A.max():.4f}], ",
+            f"B range: [{B.min():.4f}, {B.max():.4f}]",
         )
 
 print("\n[3/4] Extracting steady-state features...")

@@ -28,6 +28,8 @@ data/bronze/
 data/silver/
 data/gold/
 data/output/
+data/budget/
+data/predictions/
 
 # Cached POI dataset
 scraping/sri_lanka_pois.parquet
@@ -79,3 +81,4 @@ report.md
 Plan.md
 problem.md
 Problem Statement - 2nd Round.pdf
+web/
