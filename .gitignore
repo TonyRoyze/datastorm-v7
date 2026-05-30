@@ -22,11 +22,12 @@ env/
 # Raw competition data (large CSVs)
 raw_data/*.csv
 
-# Medallion data lake (Data committed directly to GitHub as requested)
-# data/bronze/*.parquet
-# data/silver/*.parquet
-# data/silver/rejected/*.parquet
-# data/gold/*.parquet
+# Medallion data lake (large files excluded from git)
+data/raw/
+data/bronze/
+data/silver/
+data/gold/
+data/output/
 
 # Cached POI dataset
 scraping/sri_lanka_pois.parquet
