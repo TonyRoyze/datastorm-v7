@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { Skeleton } from "@/components/ui/skeleton"
 import { usePathname } from "next/navigation"
 import dynamic from "next/dynamic"
 import { AppSidebar } from "@/components/app-sidebar"
@@ -123,41 +124,52 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 }
           }
         >
-          {loaded && (
+          <div
+            style={{
+              border: "1px solid",
+              borderColor: "var(--border)",
+              borderRadius: 8,
+              overflow: "hidden",
+              display: "flex",
+              flexDirection: "column",
+              background: "var(--card)",
+              flex: 1,
+              minHeight: 0,
+              fontFamily: "system-ui, sans-serif",
+            }}
+          >
             <div
               style={{
-                border: "1px solid #e5e5e5",
-                borderRadius: 8,
-                overflow: "hidden",
+                padding: "10px 14px",
+                borderBottom: "1px solid",
+                borderColor: "var(--border)",
+                fontSize: 14,
+                fontWeight: 600,
                 display: "flex",
-                flexDirection: "column",
-                background: "#fff",
-                flex: 1,
-                minHeight: 0,
-                fontFamily: "system-ui, sans-serif",
+                justifyContent: "space-between",
+                alignItems: "center",
               }}
             >
-              <div
-                style={{
-                  padding: "10px 14px",
-                  borderBottom: "1px solid #e5e5e5",
-                  fontSize: 14,
-                  fontWeight: 600,
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-              >
-                <span>Western Province — Outlet Map</span>
-                <span style={{ color: "#666", fontWeight: 400, fontSize: 13 }}>
-                  {outlets.length.toLocaleString()} outlets
-                </span>
-              </div>
-              <div style={{ flex: 1, minHeight: 0 }}>
-                <LazyOutletMap outlets={outlets} />
-              </div>
+              {loaded ? (
+                <>
+                  <span>Western Province — Outlet Map</span>
+                  <span style={{ color: "var(--muted-foreground)", fontWeight: 400, fontSize: 13 }}>
+                    {outlets.length.toLocaleString()} outlets
+                  </span>
+                </>
+              ) : (
+                <>
+                  <Skeleton className="h-4 w-48" />
+                  <Skeleton className="h-3 w-20" />
+                </>
+              )}
             </div>
-          )}
+            <div style={{ flex: 1, minHeight: 0 }}>
+              {loaded ? (
+                <LazyOutletMap outlets={outlets} />
+              ) : null}
+            </div>
+          </div>
         </div>
       </SidebarInset>
     </SidebarProvider>
