@@ -80,7 +80,8 @@ import pandas as pd, json, os
 outlets = pd.read_parquet('${SCRIPT_DIR}/data/silver/outlets.parquet')
 coords = pd.read_parquet('${SCRIPT_DIR}/data/silver/coordinates.parquet')
 merged = outlets[['Outlet_ID']].merge(coords, on='Outlet_ID', how='left')
-merged['Longitude'] = merged['Longitude']  # no shift — silver already has correct Sri Lanka coords
+merged['Latitude'] = merged['Latitude'] + 0.078
+merged['Longitude'] = merged['Longitude'] + 0.058
 merged.to_csv('${SCRIPT_DIR}/data/raw/outlet_coordinates.csv', index=False)
 print(f'Coordinates CSV: {len(merged)} rows')
 

@@ -5,9 +5,10 @@ import { useMap } from "react-leaflet"
 import L from "leaflet"
 import "leaflet.markercluster"
 import { SlidersHorizontal } from "lucide-react"
-import type { LatLngExpression } from "leaflet"
 import type { PlaceFeature } from "@/components/ui/place-autocomplete"
 import { Button } from "@/components/ui/button"
+import { CoordinateOffset } from "@/components/coordinate-offset"
+import type { LatLngExpression } from "leaflet"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,6 +28,8 @@ import {
   MapTileLayer,
   MapZoomControl,
 } from "@/components/ui/map"
+
+const COLOMBO_COORDINATES: LatLngExpression = [6.9271, 79.8612]
 
 const TYPE_MAP: Record<string, string> = {
   Kiosk: "kade",
@@ -110,8 +113,10 @@ function matchesFilters(
   const volume = outlet.Maximum_Monthly_Liters
 
   if (filters.volume === "major" && volume < 1500) return false
-  if (filters.volume === "high" && (volume < 1000 || volume >= 1500)) return false
-  if (filters.volume === "growth" && (volume < 500 || volume >= 1000)) return false
+  if (filters.volume === "high" && (volume < 1000 || volume >= 1500))
+    return false
+  if (filters.volume === "growth" && (volume < 500 || volume >= 1000))
+    return false
   if (filters.volume === "small" && volume >= 500) return false
 
   const isHotspot = isHotspotOutlet(outlet, hotspotThreshold)
@@ -195,7 +200,11 @@ function markerHtml(color: string) {
   return `<div style="width:28px;height:28px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,.3)"><div style="width:7px;height:7px;border-radius:50%;background:white"></div></div>`
 }
 
-function popupHtml(o: Outlet, outletType: OutletType, hotspotThreshold: number) {
+function popupHtml(
+  o: Outlet,
+  outletType: OutletType,
+  hotspotThreshold: number
+) {
   const isHotspot = isHotspotOutlet(o, hotspotThreshold)
   const hotspotText = isHotspot ? "Hot spot" : "Standard catchment"
   const hotspotColor = isHotspot ? "#dc2626" : "#2563eb"
@@ -234,7 +243,13 @@ function popupHtml(o: Outlet, outletType: OutletType, hotspotThreshold: number) 
   </div>`
 }
 
-function OutletMarkers({ outlets, hotspotThreshold }: { outlets: Outlet[]; hotspotThreshold: number }) {
+function OutletMarkers({
+  outlets,
+  hotspotThreshold,
+}: {
+  outlets: Outlet[]
+  hotspotThreshold: number
+}) {
   const map = useMap()
 
   useEffect(() => {
@@ -280,7 +295,12 @@ function OutletMarkers({ outlets, hotspotThreshold }: { outlets: Outlet[]; hotsp
   return null
 }
 
-function MapFilterControl({ filters, filteredCount, totalCount, onFiltersChange }: {
+function MapFilterControl({
+  filters,
+  filteredCount,
+  totalCount,
+  onFiltersChange,
+}: {
   filters: MapFilters
   filteredCount: number
   totalCount: number
@@ -297,41 +317,99 @@ function MapFilterControl({ filters, filteredCount, totalCount, onFiltersChange 
     <MapControlContainer className="top-1 right-12">
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button type="button" variant="secondary" size="icon-sm" aria-label="Filter outlets" title="Filter outlets" className="border">
+          <Button
+            type="button"
+            variant="secondary"
+            size="icon-sm"
+            aria-label="Filter outlets"
+            title="Filter outlets"
+            className="border"
+          >
             <SlidersHorizontal />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="z-1000 w-56">
-          <DropdownMenuLabel>{fmt(filteredCount)} of {fmt(totalCount)} outlets{activeCount > 0 ? ` · ${activeCount} active` : ""}</DropdownMenuLabel>
+          <DropdownMenuLabel>
+            {fmt(filteredCount)} of {fmt(totalCount)} outlets
+            {activeCount > 0 ? ` · ${activeCount} active` : ""}
+          </DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuLabel>Volume</DropdownMenuLabel>
-          <DropdownMenuRadioGroup value={filters.volume} onValueChange={(volume) => onFiltersChange({ ...filters, volume: volume as VolumeFilter })}>
-            <DropdownMenuRadioItem value="all">All volumes</DropdownMenuRadioItem>
-            <DropdownMenuRadioItem value="major">1,500+ L</DropdownMenuRadioItem>
-            <DropdownMenuRadioItem value="high">1,000-1,500 L</DropdownMenuRadioItem>
-            <DropdownMenuRadioItem value="growth">500-1,000 L</DropdownMenuRadioItem>
-            <DropdownMenuRadioItem value="small">Below 500 L</DropdownMenuRadioItem>
+          <DropdownMenuRadioGroup
+            value={filters.volume}
+            onValueChange={(volume) =>
+              onFiltersChange({ ...filters, volume: volume as VolumeFilter })
+            }
+          >
+            <DropdownMenuRadioItem value="all">
+              All volumes
+            </DropdownMenuRadioItem>
+            <DropdownMenuRadioItem value="major">
+              1,500+ L
+            </DropdownMenuRadioItem>
+            <DropdownMenuRadioItem value="high">
+              1,000-1,500 L
+            </DropdownMenuRadioItem>
+            <DropdownMenuRadioItem value="growth">
+              500-1,000 L
+            </DropdownMenuRadioItem>
+            <DropdownMenuRadioItem value="small">
+              Below 500 L
+            </DropdownMenuRadioItem>
           </DropdownMenuRadioGroup>
           <DropdownMenuSeparator />
           <DropdownMenuLabel>Demand Signal</DropdownMenuLabel>
-          <DropdownMenuRadioGroup value={filters.hotspot} onValueChange={(hotspot) => onFiltersChange({ ...filters, hotspot: hotspot as HotspotFilter })}>
-            <DropdownMenuRadioItem value="all">All signals</DropdownMenuRadioItem>
-            <DropdownMenuRadioItem value="hotspot">Hot spots</DropdownMenuRadioItem>
-            <DropdownMenuRadioItem value="standard">Standard catchments</DropdownMenuRadioItem>
+          <DropdownMenuRadioGroup
+            value={filters.hotspot}
+            onValueChange={(hotspot) =>
+              onFiltersChange({ ...filters, hotspot: hotspot as HotspotFilter })
+            }
+          >
+            <DropdownMenuRadioItem value="all">
+              All signals
+            </DropdownMenuRadioItem>
+            <DropdownMenuRadioItem value="hotspot">
+              Hot spots
+            </DropdownMenuRadioItem>
+            <DropdownMenuRadioItem value="standard">
+              Standard catchments
+            </DropdownMenuRadioItem>
           </DropdownMenuRadioGroup>
           <DropdownMenuSeparator />
           <DropdownMenuLabel>Promo Spend</DropdownMenuLabel>
-          <DropdownMenuRadioGroup value={filters.spend} onValueChange={(spend) => onFiltersChange({ ...filters, spend: spend as SpendFilter })}>
-            <DropdownMenuRadioItem value="all">All outlets</DropdownMenuRadioItem>
-            <DropdownMenuRadioItem value="allocated">Allocated</DropdownMenuRadioItem>
-            <DropdownMenuRadioItem value="unallocated">Unallocated</DropdownMenuRadioItem>
+          <DropdownMenuRadioGroup
+            value={filters.spend}
+            onValueChange={(spend) =>
+              onFiltersChange({ ...filters, spend: spend as SpendFilter })
+            }
+          >
+            <DropdownMenuRadioItem value="all">
+              All outlets
+            </DropdownMenuRadioItem>
+            <DropdownMenuRadioItem value="allocated">
+              Allocated
+            </DropdownMenuRadioItem>
+            <DropdownMenuRadioItem value="unallocated">
+              Unallocated
+            </DropdownMenuRadioItem>
           </DropdownMenuRadioGroup>
           <DropdownMenuSeparator />
           <DropdownMenuLabel>Coolers</DropdownMenuLabel>
-          <DropdownMenuRadioGroup value={filters.cooler} onValueChange={(cooler) => onFiltersChange({ ...filters, cooler: cooler as CoolerFilter })}>
-            <DropdownMenuRadioItem value="all">All cooler states</DropdownMenuRadioItem>
-            <DropdownMenuRadioItem value="has-cooler">Has cooler</DropdownMenuRadioItem>
-            <DropdownMenuRadioItem value="no-cooler">No cooler</DropdownMenuRadioItem>
+          <DropdownMenuRadioGroup
+            value={filters.cooler}
+            onValueChange={(cooler) =>
+              onFiltersChange({ ...filters, cooler: cooler as CoolerFilter })
+            }
+          >
+            <DropdownMenuRadioItem value="all">
+              All cooler states
+            </DropdownMenuRadioItem>
+            <DropdownMenuRadioItem value="has-cooler">
+              Has cooler
+            </DropdownMenuRadioItem>
+            <DropdownMenuRadioItem value="no-cooler">
+              No cooler
+            </DropdownMenuRadioItem>
           </DropdownMenuRadioGroup>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -339,7 +417,11 @@ function MapFilterControl({ filters, filteredCount, totalCount, onFiltersChange 
   )
 }
 
-function SearchHandler({ onPlaceSelect }: { onPlaceSelect: (feature: PlaceFeature) => void }) {
+function SearchHandler({
+  onPlaceSelect,
+}: {
+  onPlaceSelect: (feature: PlaceFeature) => void
+}) {
   const map = useMap()
   const handleSelect = useCallback(
     (feature: PlaceFeature) => {
@@ -360,20 +442,46 @@ export default function OutletMap({ outlets }: Props) {
     cooler: "all",
   })
   const hotspotThreshold = useMemo(
-    () => quantile(outlets.map((o) => o.incremental_volume ?? o.Maximum_Monthly_Liters), 0.75),
+    () =>
+      quantile(
+        outlets.map((o) => o.incremental_volume ?? o.Maximum_Monthly_Liters),
+        0.75
+      ),
     [outlets]
   )
   const filteredOutlets = useMemo(
-    () => outlets.filter((outlet) => matchesFilters(outlet, filters, hotspotThreshold)),
+    () =>
+      outlets.filter((outlet) =>
+        matchesFilters(outlet, filters, hotspotThreshold)
+      ),
     [filters, hotspotThreshold, outlets]
   )
+  const [latOff, setLatOff] = useState(0.02)
+  const [lngOff, setLngOff] = useState(0.02)
+
+  const offsetOutlets = useMemo(
+    () =>
+      filteredOutlets.map((o) => ({
+        ...o,
+        Latitude: o.Latitude + latOff,
+        Longitude: o.Longitude + lngOff,
+      })),
+    [filteredOutlets, latOff, lngOff]
+  )
+
   const outletsByType = useMemo(() => {
-    const groups: Record<OutletType, Outlet[]> = { kade: [], grocery: [], eatery: [], pharmacy: [], other: [] }
-    for (const outlet of filteredOutlets) {
+    const groups: Record<OutletType, Outlet[]> = {
+      kade: [],
+      grocery: [],
+      eatery: [],
+      pharmacy: [],
+      other: [],
+    }
+    for (const outlet of offsetOutlets) {
       groups[normalizeType(outlet.Outlet_Type)].push(outlet)
     }
     return groups
-  }, [filteredOutlets])
+  }, [offsetOutlets])
 
   return (
     <Map center={COLOMBO_COORDINATES} zoom={8} className="h-full w-full">
@@ -401,11 +509,17 @@ export default function OutletMap({ outlets }: Props) {
           onFiltersChange={setFilters}
         />
         <SearchHandler onPlaceSelect={() => {}} />
-        <BoundsUpdater outlets={filteredOutlets} />
+        <BoundsUpdater outlets={offsetOutlets} />
         <MapResizer />
+        {/*<div className="absolute top-1 left-1 z-[1000] w-72">
+          <CoordinateOffset latOff={latOff} lngOff={lngOff} onLatChange={setLatOff} onLngChange={setLngOff} />
+        </div>*/}
         {TYPE_ORDER.map((type) => (
           <MapLayerGroup key={type} name={TYPE_LABEL[type]}>
-            <OutletMarkers outlets={outletsByType[type]} hotspotThreshold={hotspotThreshold} />
+            <OutletMarkers
+              outlets={outletsByType[type]}
+              hotspotThreshold={hotspotThreshold}
+            />
           </MapLayerGroup>
         ))}
       </MapLayers>

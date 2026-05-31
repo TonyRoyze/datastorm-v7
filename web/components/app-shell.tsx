@@ -20,10 +20,6 @@ interface Outlet {
   Trade_Spend_LKR?: number
 }
 
-function isWesternProvince(lat: number, lng: number) {
-  return lat >= 6.4 && lat <= 7.2 && lng >= 79.7 && lng <= 80.2
-}
-
 function useMapData() {
   const [outlets, setOutlets] = useState<Outlet[]>([])
   const [loaded, setLoaded] = useState(false)
@@ -58,8 +54,7 @@ function useMapData() {
             typeof o.Latitude === "number" &&
             typeof o.Longitude === "number" &&
             !isNaN(o.Latitude) &&
-            !isNaN(o.Longitude) &&
-            isWesternProvince(o.Latitude, o.Longitude)
+            !isNaN(o.Longitude)
         )
 
       setOutlets(merged)
@@ -152,7 +147,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             >
               {loaded ? (
                 <>
-                  <span>Western Province — Outlet Map</span>
+                  <span>Sri Lanka — Outlet Map</span>
                   <span style={{ color: "var(--muted-foreground)", fontWeight: 400, fontSize: 13 }}>
                     {outlets.length.toLocaleString()} outlets
                   </span>

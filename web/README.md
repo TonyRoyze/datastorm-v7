@@ -47,13 +47,13 @@ pnpm run typecheck  # tsc --noEmit
 ## Screenshots
 
 ### Overview Dashboard
-![Overview Dashboard](./public/screenshots/overview-dashboard.png?raw=true)
+![Overview Dashboard](./public/res/overview-dashboard.png?raw=true)
 
 ### Outlet Map
-![Outlet Map](./public/screenshots/outlet-map.jpeg?raw=true)
+![Outlet Map](./public/res/outlet-map.jpeg?raw=true)
 
 ### Settings — Data Connections
-![Settings — Data Connections](./public/screenshots/settings-data-connections.png?raw=true)
+![Settings — Data Connections](./public/res/settings-data-connections.png?raw=true)
 
 ## Data Files
 
