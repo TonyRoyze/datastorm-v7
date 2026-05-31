@@ -420,6 +420,7 @@ export function DataTable({ data }: { data: OutletRow[] }) {
       volume_cv: false,
       historical_max_volume: false,
       constraint_flag: false,
+      incremental_volume: false,
     })
   const [pagination, setPagination] = React.useState({
     pageIndex: 0,

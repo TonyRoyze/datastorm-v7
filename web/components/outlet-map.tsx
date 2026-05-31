@@ -4,10 +4,16 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { useMap } from "react-leaflet"
 import L from "leaflet"
 import "leaflet.markercluster"
-import { SlidersHorizontal } from "lucide-react"
+import { Loader2, SlidersHorizontal, Sparkles } from "lucide-react"
 import type { PlaceFeature } from "@/components/ui/place-autocomplete"
 import { Button } from "@/components/ui/button"
 import { CoordinateOffset } from "@/components/coordinate-offset"
+import { Badge } from "@/components/ui/badge"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 import type { LatLngExpression } from "leaflet"
 import {
   DropdownMenu,
@@ -32,7 +38,7 @@ import {
 const COLOMBO_COORDINATES: LatLngExpression = [6.9271, 79.8612]
 
 const TYPE_MAP: Record<string, string> = {
-  Kiosk: "kade",
+  Kade: "kade",
   Grocery: "grocery",
   Grocry: "grocery",
   Eatery: "eatery",
@@ -59,7 +65,7 @@ interface MapFilters {
 }
 
 const TYPE_LABEL: Record<OutletType, string> = {
-  kade: "Kiosk",
+  kade: "Kade",
   grocery: "Grocery",
   eatery: "Eatery",
   pharmacy: "Pharmacy",
@@ -71,17 +77,28 @@ interface Outlet {
   Maximum_Monthly_Liters: number
   Latitude: number
   Longitude: number
+  Distributor_ID?: string
   Outlet_Type?: string
   Outlet_Size?: string
   Cooler_Count?: number
+  constraint_flag?: number
+  volume_cv?: number
   historical_max_volume?: number
   incremental_volume?: number
   rd_demand_pressure?: number
   Trade_Spend_LKR?: number
+  Spend_Type?: string
 }
 
 interface Props {
   outlets: Outlet[]
+}
+
+interface InsightResult {
+  verdict: string
+  positiveDrivers: string[]
+  negativeConstraints: string[]
+  recommendedAction: string
 }
 
 function normalizeType(raw: string | undefined): OutletType {
@@ -127,9 +144,12 @@ function matchesFilters(
   if (filters.spend === "allocated" && !hasSpend) return false
   if (filters.spend === "unallocated" && hasSpend) return false
 
-  const hasCooler = (outlet.Cooler_Count ?? 0) > 0
+  const coolerCount = outlet.Cooler_Count
+  const hasCoolerData = coolerCount != null
+  const hasCooler = coolerCount != null && coolerCount > 0
+  const hasExplicitNoCooler = coolerCount === 0
   if (filters.cooler === "has-cooler" && !hasCooler) return false
-  if (filters.cooler === "no-cooler" && hasCooler) return false
+  if (filters.cooler === "no-cooler" && !hasExplicitNoCooler) return false
 
   return true
 }
@@ -187,68 +207,52 @@ function quantile(values: number[], q: number) {
     : sorted[base]
 }
 
-function escapeHtml(value: unknown) {
-  return String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;")
+function summarizeOutlets(rows: Outlet[]) {
+  return {
+    total: rows.length,
+    withType: rows.filter((row) => row.Outlet_Type).length,
+    withSize: rows.filter((row) => row.Outlet_Size).length,
+    withDistributor: rows.filter((row) => row.Distributor_ID).length,
+    withCoolerCount: rows.filter((row) => row.Cooler_Count != null).length,
+    hasCooler: rows.filter((row) => (row.Cooler_Count ?? 0) > 0).length,
+    explicitNoCooler: rows.filter((row) => row.Cooler_Count === 0).length,
+    missingCooler: rows.filter((row) => row.Cooler_Count == null).length,
+    withTradeSpend: rows.filter((row) => (row.Trade_Spend_LKR ?? 0) > 0).length,
+  }
 }
 
 function markerHtml(color: string) {
   return `<div style="width:28px;height:28px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,.3)"><div style="width:7px;height:7px;border-radius:50%;background:white"></div></div>`
 }
 
-function popupHtml(
-  o: Outlet,
-  outletType: OutletType,
-  hotspotThreshold: number
-) {
-  const isHotspot = isHotspotOutlet(o, hotspotThreshold)
-  const hotspotText = isHotspot ? "Hot spot" : "Standard catchment"
-  const hotspotColor = isHotspot ? "#dc2626" : "#2563eb"
-  const hotspotBg = isHotspot ? "#fee2e2" : "#dbeafe"
-  const coolerText =
-    o.Cooler_Count != null
-      ? ` &middot; ${fmt(o.Cooler_Count)} cooler${o.Cooler_Count === 1 ? "" : "s"}`
-      : ""
-  const spendText = o.Trade_Spend_LKR
-    ? `<div style="display:flex;justify-content:space-between;gap:12px;padding:8px 0 0;border-top:1px solid #e5e7eb">
-        <span style="color:#6b7280">Promo spend</span>
-        <strong style="color:#16a34a">LKR ${fmt(o.Trade_Spend_LKR)}</strong>
-      </div>`
-    : ""
+function buildFallbackInsight(outlet: Outlet): InsightResult {
+  const predicted = fmt(outlet.Maximum_Monthly_Liters)
+  const incremental =
+    outlet.incremental_volume != null ? fmt(outlet.incremental_volume) : "N/A"
 
-  return `<div style="font-family:system-ui,sans-serif;font-size:13px;line-height:1.4;min-width:220px;color:#111827;background:#f9fafb;padding:20px">
-    <div style="display:flex;align-items:flex-start;gap:12px;padding-bottom:8px;border-bottom:1px solid #e5e7eb">
-      <div>
-        <p style="font-weight:700;margin:0;font-size:14px">${escapeHtml(o.Outlet_ID)}</p>
-        <p style="font-size:12px;color:#6b7280;margin:2px 0 0">${TYPE_LABEL[outletType]}</p>
-      </div>
-      <span style="white-space:nowrap;border-radius:999px;background:${hotspotBg};color:${hotspotColor};font-size:11px;font-weight:700;padding:3px 8px">${hotspotText}</span>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr;gap:8px;margin:10px 0">
-      <div style="border:1px solid #e5e7eb;border-radius:8px;padding:8px;background:#f9fafb">
-        <div style="font-size:11px;color:#6b7280">Max monthly</div>
-        <div style="font-weight:800;font-size:16px;color:#111827">${fmt(o.Maximum_Monthly_Liters)} L</div>
-      </div>
-    </div>
-    <div style="display:flex;justify-content:space-between;gap:8px;color:#6b7280">
-      <span>Profile</span>
-      <strong style="color:#374151;font-weight:600">${escapeHtml(o.Outlet_Size || "Unknown")}${coolerText}</strong>
-    </div>
-    ${o.rd_demand_pressure != null ? `<div style="display:flex;justify-content:space-between;gap:12px;margin-top:4px;color:#6b7280"><span>RD pressure</span><strong style="color:#374151">${o.rd_demand_pressure.toFixed(2)}</strong></div>` : ""}
-    ${spendText}
-  </div>`
+  return {
+    verdict: `${outlet.Outlet_ID} is a ${outlet.Outlet_Size || "unknown-size"} ${outlet.Outlet_Type || "outlet"} with predicted potential of ${predicted} L/mo and incremental upside of ${incremental} L/mo.`,
+    positiveDrivers: [
+      `${outlet.Outlet_Size || "Unknown"} outlet profile`,
+      `${outlet.Cooler_Count ?? 0} cooler unit${outlet.Cooler_Count === 1 ? "" : "s"}`,
+    ],
+    negativeConstraints: [
+      outlet.constraint_flag
+        ? "Constraint flag is active"
+        : "No active constraint flag",
+    ],
+    recommendedAction: outlet.Trade_Spend_LKR
+      ? `Review ${outlet.Spend_Type || "trade"} spend of LKR ${fmt(outlet.Trade_Spend_LKR)} against the outlet's utilization gap.`
+      : "Review outlet fit before allocating additional promotional spend.",
+  }
 }
 
 function OutletMarkers({
   outlets,
-  hotspotThreshold,
+  onSelect,
 }: {
   outlets: Outlet[]
-  hotspotThreshold: number
+  onSelect: (o: Outlet) => void
 }) {
   const map = useMap()
 
@@ -269,16 +273,15 @@ function OutletMarkers({
         },
       })
       for (const o of outlets) {
-        const outletType = normalizeType(o.Outlet_Type)
         const marker = L.marker([o.Latitude, o.Longitude], {
           icon: L.divIcon({
             html: markerHtml(getColor(o.Maximum_Monthly_Liters)),
             className: "outlet-marker-icon",
             iconSize: [28, 28],
             iconAnchor: [14, 14],
-            popupAnchor: [0, -14],
           }),
-        }).bindPopup(popupHtml(o, outletType, hotspotThreshold))
+        })
+        marker.on("click", () => onSelect(o))
         clusterGroup.addLayer(marker)
       }
       map.addLayer(clusterGroup)
@@ -290,7 +293,7 @@ function OutletMarkers({
         if (map.hasLayer(clusterGroup)) map.removeLayer(clusterGroup)
       }
     }
-  }, [hotspotThreshold, map, outlets])
+  }, [map, outlets, onSelect])
 
   return null
 }
@@ -434,6 +437,17 @@ function SearchHandler({
   return <MapSearchControl onPlaceSelect={handleSelect} />
 }
 
+function MapClickHandler({ onMapClick }: { onMapClick: () => void }) {
+  const map = useMap()
+  useEffect(() => {
+    map.on("click", onMapClick)
+    return () => {
+      map.off("click", onMapClick)
+    }
+  }, [map, onMapClick])
+  return null
+}
+
 export default function OutletMap({ outlets }: Props) {
   const [filters, setFilters] = useState<MapFilters>({
     volume: "all",
@@ -456,8 +470,21 @@ export default function OutletMap({ outlets }: Props) {
       ),
     [filters, hotspotThreshold, outlets]
   )
-  const [latOff, setLatOff] = useState(0.02)
-  const [lngOff, setLngOff] = useState(0.02)
+
+  useEffect(() => {
+    console.groupCollapsed("[map-data] OutletMap props -> filtered outlets")
+    console.log("filters", filters)
+    console.log("incoming summary", summarizeOutlets(outlets))
+    console.log("filtered summary", summarizeOutlets(filteredOutlets))
+    console.log(
+      "incoming sample OUT_07089",
+      outlets.find((row) => row.Outlet_ID === "OUT_07089")
+    )
+    console.log("first 5 incoming rows", outlets.slice(0, 5))
+    console.groupEnd()
+  }, [filteredOutlets, filters, outlets])
+  const [latOff, setLatOff] = useState(0.01)
+  const [lngOff, setLngOff] = useState(0.01)
 
   const offsetOutlets = useMemo(
     () =>
@@ -483,11 +510,68 @@ export default function OutletMap({ outlets }: Props) {
     return groups
   }, [offsetOutlets])
 
+  const [selectedOutlet, setSelectedOutlet] = useState<Outlet | null>(null)
+  const [insightCache, setInsightCache] = useState<
+    globalThis.Map<string, InsightResult>
+  >(
+    () => new globalThis.Map()
+  )
+  const [loadingInsightId, setLoadingInsightId] = useState<string | null>(null)
+  const handleSelect = useCallback((o: Outlet) => {
+    console.log("[map-data] selected outlet", o)
+    setSelectedOutlet(o)
+  }, [])
+
+  const selectedInsight = selectedOutlet
+    ? insightCache.get(selectedOutlet.Outlet_ID)
+    : undefined
+  const isGeneratingInsight =
+    selectedOutlet != null && loadingInsightId === selectedOutlet.Outlet_ID
+
+  const handleGenerateInsight = useCallback(async () => {
+    if (!selectedOutlet || insightCache.has(selectedOutlet.Outlet_ID)) return
+
+    setLoadingInsightId(selectedOutlet.Outlet_ID)
+    try {
+      const response = await fetch("/api/outlet-insight", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ outlet: selectedOutlet }),
+      })
+      const data = (await response.json()) as InsightResult
+      setInsightCache((prev) =>
+        new globalThis.Map(prev).set(selectedOutlet.Outlet_ID, data)
+      )
+    } catch {
+      setInsightCache((prev) =>
+        new globalThis.Map(prev).set(
+          selectedOutlet.Outlet_ID,
+          buildFallbackInsight(selectedOutlet)
+        )
+      )
+    } finally {
+      setLoadingInsightId(null)
+    }
+  }, [insightCache, selectedOutlet])
+
+  const isHotspot = selectedOutlet
+    ? isHotspotOutlet(selectedOutlet, hotspotThreshold)
+    : false
+  const selectedType = selectedOutlet
+    ? TYPE_LABEL[normalizeType(selectedOutlet.Outlet_Type)]
+    : ""
+
   return (
+    <Popover
+      open={selectedOutlet != null}
+      onOpenChange={(open) => {
+        if (!open) setSelectedOutlet(null)
+      }}
+    >
     <Map center={COLOMBO_COORDINATES} zoom={8} className="h-full w-full">
       <MapLayers
         defaultTileLayer="Default"
-        defaultLayerGroups={["Kiosk", "Grocery", "Eatery", "Pharmacy", "Other"]}
+        defaultLayerGroups={["Kade", "Grocery", "Eatery", "Pharmacy", "Other"]}
       >
         <MapTileLayer name="Default" />
         <MapTileLayer
@@ -511,18 +595,173 @@ export default function OutletMap({ outlets }: Props) {
         <SearchHandler onPlaceSelect={() => {}} />
         <BoundsUpdater outlets={offsetOutlets} />
         <MapResizer />
-        {/*<div className="absolute top-1 left-1 z-[1000] w-72">
-          <CoordinateOffset latOff={latOff} lngOff={lngOff} onLatChange={setLatOff} onLngChange={setLngOff} />
-        </div>*/}
+        <MapClickHandler onMapClick={() => setSelectedOutlet(null)} />
         {TYPE_ORDER.map((type) => (
           <MapLayerGroup key={type} name={TYPE_LABEL[type]}>
             <OutletMarkers
               outlets={outletsByType[type]}
-              hotspotThreshold={hotspotThreshold}
+              onSelect={handleSelect}
             />
           </MapLayerGroup>
         ))}
       </MapLayers>
+      <PopoverTrigger asChild>
+        <button className="absolute bottom-4 right-4 size-0 opacity-0 pointer-events-none" />
+      </PopoverTrigger>
     </Map>
+    <PopoverContent
+      side="top"
+      align="end"
+      className="z-[9999] w-80 p-0"
+      onOpenAutoFocus={(e) => e.preventDefault()}
+    >
+      <div className="space-y-2 p-4">
+            <div className="mb-1 flex items-start justify-between gap-2 border-b pb-2">
+              <div>
+                <p className="text-sm font-semibold">
+                  {selectedOutlet?.Outlet_ID}
+                </p>
+                <p className="text-xs text-muted-foreground">{selectedType}</p>
+              </div>
+              {selectedOutlet && (
+                <Badge variant={isHotspot ? "default" : "secondary"}>
+                  {isHotspot ? "Hot spot" : "Standard"}
+                </Badge>
+              )}
+            </div>
+            <div className="flex justify-between text-xs">
+              <span className="text-muted-foreground">Max monthly</span>
+              <span className="font-bold">
+                {selectedOutlet
+                  ? fmt(selectedOutlet.Maximum_Monthly_Liters)
+                  : ""}{" "}
+                L
+              </span>
+            </div>
+            {selectedOutlet?.historical_max_volume != null && (
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground">Historical max</span>
+                <span className="font-medium">
+                  {fmt(selectedOutlet.historical_max_volume)} L
+                </span>
+              </div>
+            )}
+            {selectedOutlet?.incremental_volume != null && (
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground">Incremental vol</span>
+                <span className="font-medium">
+                  {fmt(selectedOutlet.incremental_volume)} L
+                </span>
+              </div>
+            )}
+            <div className="flex justify-between text-xs">
+              <span className="text-muted-foreground">Type</span>
+              <span className="font-medium">
+                {selectedOutlet?.Outlet_Type || "Unknown"}
+              </span>
+            </div>
+            <div className="flex justify-between text-xs">
+              <span className="text-muted-foreground">Size</span>
+              <span className="font-medium">
+                {selectedOutlet?.Outlet_Size || "Unknown"}
+              </span>
+            </div>
+            <div className="flex justify-between text-xs">
+              <span className="text-muted-foreground">Coolers</span>
+              <span className="font-medium">
+                {selectedOutlet?.Cooler_Count != null
+                  ? fmt(selectedOutlet.Cooler_Count)
+                  : "N/A"}
+              </span>
+            </div>
+            {selectedOutlet?.Distributor_ID && (
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground">Distributor</span>
+                <span className="font-medium">
+                  {selectedOutlet.Distributor_ID}
+                </span>
+              </div>
+            )}
+            {selectedOutlet?.constraint_flag != null && (
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground">Constraint</span>
+                <span className="font-medium">
+                  {selectedOutlet.constraint_flag ? "Yes" : "No"}
+                </span>
+              </div>
+            )}
+            {selectedOutlet?.volume_cv != null && (
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground">Volume CV</span>
+                <span className="font-medium">
+                  {selectedOutlet.volume_cv.toFixed(3)}
+                </span>
+              </div>
+            )}
+            {selectedOutlet?.rd_demand_pressure != null && (
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground">RD pressure</span>
+                <span className="font-medium">
+                  {selectedOutlet.rd_demand_pressure.toFixed(2)}
+                </span>
+              </div>
+            )}
+            {selectedOutlet?.Trade_Spend_LKR ? (
+              <div className="mt-2 flex justify-between border-t pt-2 text-xs">
+                <span className="text-muted-foreground">Promo spend</span>
+                <span className="font-medium text-green-600">
+                  LKR {fmt(selectedOutlet.Trade_Spend_LKR)}
+                </span>
+              </div>
+            ) : null}
+            {selectedOutlet && (
+              <div className="mt-3 border-t pt-3">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  className="h-8 w-full gap-2 text-xs"
+                  disabled={isGeneratingInsight}
+                  onClick={handleGenerateInsight}
+                >
+                  {isGeneratingInsight ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : (
+                    <Sparkles className="size-3.5" />
+                  )}
+                  {selectedInsight
+                    ? "Insight generated"
+                    : isGeneratingInsight
+                      ? "Generating insight"
+                      : "Generate insight"}
+                </Button>
+              </div>
+            )}
+            {selectedInsight && (
+              <div className="mt-3 space-y-3 rounded-md border bg-muted/30 p-3 text-xs">
+                <p className="leading-relaxed">{selectedInsight.verdict}</p>
+                <div>
+                  <p className="mb-1 font-semibold text-green-600">
+                    Growth drivers
+                  </p>
+                  <ul className="list-disc space-y-1 pl-4 text-muted-foreground">
+                    {selectedInsight.positiveDrivers.slice(0, 3).map((driver) => (
+                      <li key={driver}>{driver}</li>
+                    ))}
+                  </ul>
+                </div>
+                <div>
+                  <p className="mb-1 font-semibold text-amber-700">
+                    Recommended action
+                  </p>
+                  <p className="leading-relaxed text-muted-foreground">
+                    {selectedInsight.recommendedAction}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        </PopoverContent>
+    </Popover>
   )
 }

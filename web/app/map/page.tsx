@@ -21,6 +21,11 @@ function asNumber(value: unknown) {
   return Number.isFinite(numeric) ? numeric : 0
 }
 
+function optNumber(value: unknown): number | undefined {
+  const numeric = Number(value)
+  return Number.isFinite(numeric) ? numeric : undefined
+}
+
 export default function MapPage() {
   const outletRows = readJSON("outlets.json")
   const coordinates = outletRows.length > 0 ? outletRows : readJSON("outlet_coordinates.json")
@@ -33,16 +38,14 @@ export default function MapPage() {
       asNumber(row.Maximum_Monthly_Liters),
     ])
   )
-  const spendByOutlet = new Map(
-    budgetAllocations.map((row) => [
-      String(row.Outlet_ID),
-      asNumber(row.Trade_Spend_LKR),
-    ])
+  const budgetByOutlet = new Map(
+    budgetAllocations.map((row) => [String(row.Outlet_ID), row])
   )
 
   const outlets = coordinates
     .map((row) => {
       const outletId = String(row.Outlet_ID)
+      const b = budgetByOutlet.get(outletId) || {}
 
       return {
         Outlet_ID: outletId,
@@ -52,8 +55,17 @@ export default function MapPage() {
           asNumber(row.Maximum_Monthly_Liters) ||
           predictionByOutlet.get(outletId) ||
           0,
-        Trade_Spend_LKR:
-          asNumber(row.Trade_Spend_LKR) || spendByOutlet.get(outletId) || 0,
+        Distributor_ID: String(row.Distributor_ID ?? b.Distributor_ID ?? ""),
+        Outlet_Type: String(row.Outlet_Type ?? b.Outlet_Type ?? ""),
+        Outlet_Size: String(row.Outlet_Size ?? b.Outlet_Size ?? ""),
+        Cooler_Count: asNumber(row.Cooler_Count ?? b.Cooler_Count),
+        constraint_flag: optNumber(row.constraint_flag ?? b.constraint_flag),
+        volume_cv: optNumber(row.volume_cv ?? b.volume_cv),
+        historical_max_volume: optNumber(row.historical_max_volume ?? b.historical_max_volume),
+        incremental_volume: optNumber(row.incremental_volume ?? b.incremental_volume),
+        rd_demand_pressure: optNumber(row.rd_demand_pressure ?? b.rd_demand_pressure),
+        Trade_Spend_LKR: asNumber(row.Trade_Spend_LKR ?? b.Trade_Spend_LKR),
+        Spend_Type: String(row.Spend_Type ?? b.Spend_Type ?? "Not funded"),
       }
     })
     .filter(

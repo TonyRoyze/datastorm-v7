@@ -2,12 +2,22 @@
 
 import dynamic from "next/dynamic"
 
-type Outlet = {
+interface Outlet {
   Outlet_ID: string
+  Maximum_Monthly_Liters: number
   Latitude: number
   Longitude: number
-  Maximum_Monthly_Liters: number
+  Distributor_ID?: string
+  Outlet_Type?: string
+  Outlet_Size?: string
+  Cooler_Count?: number
+  constraint_flag?: number
+  volume_cv?: number
+  historical_max_volume?: number
+  incremental_volume?: number
+  rd_demand_pressure?: number
   Trade_Spend_LKR?: number
+  Spend_Type?: string
 }
 
 const OutletMap = dynamic(() => import("@/components/outlet-map"), {
