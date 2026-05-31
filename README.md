@@ -161,5 +161,5 @@ pnpm run start --prefix web
 
 ## Team — Ctrl Freaks
 
-- **Sukitha Rathnayake** — MLOps, DQ Forensics, Ensemble Logic
+- **Sukitha Rathnayake** — MLOps, DQ Forensics, Ensemble Logic, GenAI
 - **Vidura Gunawardana** — Pipeline Architecture, Turing RD, Tobit Modeling, Web App
