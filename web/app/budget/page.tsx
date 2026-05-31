@@ -1,5 +1,6 @@
-import fs from "fs";
+import { promises as fs } from "fs";
 import path from "path";
+import { cache } from "react";
 import {
   Card,
   CardContent,
@@ -15,22 +16,24 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { fmtMoney, fmtNumber } from "@/lib/utils";
 
 const DATA_DIR = path.join(process.cwd(), "public", "data");
 
-function readJSON(filename: string): any[] {
+const readJSON = cache(async (filename: string): Promise<any[]> => {
   const p = path.join(DATA_DIR, filename);
-  return fs.existsSync(p) ? JSON.parse(fs.readFileSync(p, "utf-8")) : [];
-}
+  try {
+    const data = await fs.readFile(p, "utf-8");
+    return JSON.parse(data);
+  } catch {
+    return [];
+  }
+});
 
-const fmt = (v: number) =>
-  v.toLocaleString(undefined, { maximumFractionDigits: 0 });
-const fmtMoney = (v: number) =>
-  "LKR " + v.toLocaleString(undefined, { maximumFractionDigits: 0 });
-
-export default function BudgetPage() {
-  const budget = readJSON("budget_allocations.json").sort(
-    (a: any, b: any) => b.Trade_Spend_LKR - a.Trade_Spend_LKR
+export default async function BudgetPage() {
+  const data = await readJSON("budget_allocations.json");
+  const budget = data.sort(
+    (a: any, b: any) => (b.Trade_Spend_LKR ?? 0) - (a.Trade_Spend_LKR ?? 0)
   );
 
   const totalBudget = budget.reduce(
@@ -46,7 +49,7 @@ export default function BudgetPage() {
             Budget Allocation
           </CardTitle>
           <CardDescription>
-            {fmt(budget.length)} outlets ·{" "}
+            {fmtNumber(budget.length)} outlets ·{" "}
             {fmtMoney(Math.round(totalBudget))} total
           </CardDescription>
         </CardHeader>
@@ -68,10 +71,12 @@ export default function BudgetPage() {
                     {b.Outlet_ID}
                   </TableCell>
                   <TableCell className="text-right font-medium">
-                    {fmtMoney(Math.round(b.Trade_Spend_LKR))}
+                    {fmtMoney(Math.round(b.Trade_Spend_LKR ?? 0))}
                   </TableCell>
                   <TableCell className="text-right text-muted-foreground">
-                    {((b.Trade_Spend_LKR / totalBudget) * 100).toFixed(2)}%
+                    {totalBudget > 0
+                      ? (((b.Trade_Spend_LKR ?? 0) / totalBudget) * 100).toFixed(2)
+                      : "0.00"}%
                   </TableCell>
                 </TableRow>
               ))}

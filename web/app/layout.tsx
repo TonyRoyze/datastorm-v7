@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import AppShell from "@/components/app-shell";
+import { PageContextProvider } from "@/components/page-context";
+import { Chatbot } from "@/components/chatbot";
 import "./globals.css";
 import { Inter } from "next/font/google";
 import { cn } from "@/lib/utils";
@@ -22,9 +24,12 @@ export default function RootLayout({
     <html lang="en" className={cn("h-full", "font-sans", inter.variable)} suppressHydrationWarning>
       <body className="h-full m-0">
         <ThemeProvider>
-          <TooltipProvider delayDuration={0}>
-            <AppShell>{children}</AppShell>
-          </TooltipProvider>
+          <PageContextProvider>
+            <TooltipProvider delayDuration={0}>
+              <AppShell>{children}</AppShell>
+              <Chatbot />
+            </TooltipProvider>
+          </PageContextProvider>
         </ThemeProvider>
       </body>
     </html>

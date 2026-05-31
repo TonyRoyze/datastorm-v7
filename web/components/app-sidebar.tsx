@@ -1,8 +1,6 @@
 "use client"
 import Link from "next/link"
 import { NavMain } from "@/components/nav-main"
-import { NavSecondary } from "@/components/nav-secondary"
-import { NavUser } from "@/components/nav-user"
 import {
   Sidebar,
   SidebarContent,
@@ -21,18 +19,12 @@ import {
 } from "lucide-react"
 
 const data = {
-  user: {
-    name: "Datastorm",
-    email: "datastorm@beverage.lk",
-    avatar: "",
-  },
   navMain: [
     { title: "Overview", url: "/", icon: <LayoutDashboard /> },
     { title: "Outlet Map", url: "/map", icon: <Map /> },
     { title: "Budget Allocation", url: "/budget", icon: <Banknote /> },
     { title: "Settings", url: "/settings", icon: <Settings /> },
   ],
-  navSecondary: [],
 }
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
@@ -55,9 +47,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={data.navMain} />
-        <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
-      <SidebarFooter></SidebarFooter>
     </Sidebar>
   )
 }

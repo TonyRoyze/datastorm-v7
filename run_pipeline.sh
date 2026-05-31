@@ -72,6 +72,7 @@ if should_run 8; then phase_header 8 "SPEND — Budget Optimization"; ${PYTHON} 
 if should_run 9; then
     phase_header 9 "EXPORT — JSON + Web Assets"
     mkdir -p "${SCRIPT_DIR}/web/public/data"
+    
     ${PYTHON} -c "
 import pandas as pd, json, os
 
@@ -112,6 +113,7 @@ if os.path.exists(coords_path):
     print(f'Coordinates: {len(coords_df)} rows')
 else:
     print(f'  [WARN] Coordinates not found: {coords_path}')
+
 "
 else echo "  [SKIP] Phase 9"; fi
 

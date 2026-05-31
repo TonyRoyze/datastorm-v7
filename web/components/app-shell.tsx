@@ -28,8 +28,6 @@ function useMapData() {
   const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
-    import("@/components/outlet-map")
-
     let cancelled = false
     async function load() {
       const [coords, preds, budget] = await Promise.all([

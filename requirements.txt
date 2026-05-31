@@ -9,3 +9,6 @@ geopandas>=1.0
 PyYAML
 requests
 zenml[local]
+google-genai
+shap
+tqdm

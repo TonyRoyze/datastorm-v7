@@ -90,12 +90,11 @@ graph TD
 │   ├── model/                # Latent Demand Modeling
 │   └── eda/                  # Analysis & Diagnostic Scripts
 ├── web/                      # Outlet Intelligence Web App
-│   ├── src/
-│   │   ├── app/              # Next.js pages + API routes
-│   │   ├── components/       # React components
-│   │   └── lib/              # Types + utils
-│   ├── scripts/              # Data export script
-│   └── public/data/          # Generated outlet JSON
+│   ├── app/                  # Next.js pages + API routes
+│   ├── components/           # React components
+│   ├── lib/                  # Types + utils
+│   ├── public/data/          # Generated outlet JSON
+│   └── (config files...)
 ├── outputs/                  # Diagnostic Visualizations
 ├── run_pipeline.sh           # End-to-End Runner
 └── params.yaml               # Pipeline configuration
@@ -123,12 +122,13 @@ Applies a **Quarantine Pattern** to trap anomalies. Implements the **Historical 
 
 ## Getting Started
 
-### Prerequisites
+### Prerequisites (Data Pipeline & Report)
 - Python 3.9+
+- [Typst](https://typst.app/) (for report generation)
+
+### Prerequisites (Web App)
 - Node.js 20+ (for the web app)
 - npm 9+ (for the web app)
-- [Typst](https://typst.app/) (for report generation)
-- [ZenML](https://zenml.io) (optional, orchestrator-agnostic)
 
 ### Installation
 ```bash
@@ -148,14 +148,10 @@ chmod +x run_pipeline.sh
 ```
 
 ### Running the Web App
-The Outlet Intelligence Web App visualizes predictions on an interactive map:
+The Outlet Intelligence Web App visualizes predictions on an interactive map. Make sure you have the pre-generated JSON files in `web/public/data/`.
 
 ```bash
-# 1. Activate Python environment and export data
-source .venv/bin/activate
-python3 web/scripts/export-data.py
-
-# 2. Start Next.js dev server
+# Start Next.js dev server
 npm run dev --prefix web
 # → http://localhost:3000
 ```
@@ -178,11 +174,10 @@ typst compile report/main.typ --root .
 
 | Domain | Tools |
 |---|---|
-| **Pipeline** | ZenML, DVC, Apache Arrow |
+| **Pipeline** | Apache Arrow, Python |
 | **Analysis** | Pandas, SciPy, Scikit-Learn |
 | **Spatial** | GeoPandas, Overpass API, Shapely |
-| **Web App** | Next.js 16, shadcn/ui, react-leaflet, Leaflet |
-| **Reporting** | Mermaid.js |
+| **Web App** | Next.js 15, shadcn/ui, react-leaflet, Leaflet |
 
 ---
 

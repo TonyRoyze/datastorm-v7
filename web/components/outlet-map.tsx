@@ -65,16 +65,12 @@ const fmt = (v: number) =>
 
 export default function OutletMap({ outlets }: Props) {
   const maxVol = Math.max(...outlets.map((o) => o.Maximum_Monthly_Liters), 1)
-  const minVol = Math.min(...outlets.map((o) => o.Maximum_Monthly_Liters), 0)
+  const minVol = Math.min(...outlets.map((o) => o.Maximum_Monthly_Liters))
   const COLOMBO_COORDINATES = [6.920575, 79.859823] satisfies LatLngExpression
 
   return (
     <Map center={COLOMBO_COORDINATES} zoom={8} className="h-full w-full">
-      <MapTileLayer
-        // name="OSM"
-        // url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        attribution="&copy; OpenStreetMap contributors"
-      />
+      <MapTileLayer attribution="&copy; OpenStreetMap contributors" />
       <MapZoomControl />
       <BoundsUpdater outlets={outlets} />
       <MapResizer />
