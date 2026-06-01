@@ -305,10 +305,9 @@ export async function POST(req: NextRequest) {
 
     const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) {
-      return NextResponse.json(
-        { error: "GROQ_API_KEY is missing from environment variables." },
-        { status: 500 }
-      );
+      return NextResponse.json({
+        result: buildOfflineResponse({ prompt, context, isInitialInsight }),
+      });
     }
 
     const groq = new Groq({ apiKey });
@@ -355,47 +354,74 @@ Do NOT make up data. If the answer isn't in the data, say so honestly.`;
     const text = completion.choices[0]?.message?.content || "No response generated.";
     return NextResponse.json({ result: text });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("AI Route Error:", error);
-
-    // ── Offline fallback: local data queries, no AI needed ──
-    if (!isInitialInsight && prompt) {
-      try {
-        const smartContext: any = buildSmartContext(prompt, context);
-        const qt = smartContext.queryType;
-
-        if (qt === "distributor_breakdown" && smartContext.distributors) {
-          const top = smartContext.distributors[0];
-          return NextResponse.json({ result: `[Offline Mode] Top distributor by spend is ${top.distributorId} with LKR ${top.totalSpendLKR.toLocaleString()} across ${top.outlets} outlets and ${top.totalPredictedVolumeLmo.toLocaleString()} L/mo predicted volume.` });
-        }
-        if (qt === "outlet_type_breakdown" && smartContext.outletTypes) {
-          const top = smartContext.outletTypes[0];
-          return NextResponse.json({ result: `[Offline Mode] ${top.type} outlets receive the most budget: LKR ${top.totalSpendLKR.toLocaleString()} across ${top.count} outlets with avg ${top.avgPredictedVolumeLmo.toLocaleString()} L/mo volume.` });
-        }
-        if (qt === "worst_outlets_by_potential" && smartContext.worstOutlets) {
-          const w = smartContext.worstOutlets[0];
-          return NextResponse.json({ result: `[Offline Mode] The lowest potential outlet is ${w.outletId} (${w.type}, ${w.size}) with only ${w.predictedVolumeLmo.toLocaleString()} L/mo predicted.` });
-        }
-        if (qt === "top_outlets_by_potential" && smartContext.topOutlets) {
-          const t = smartContext.topOutlets[0];
-          return NextResponse.json({ result: `[Offline Mode] Top outlet by potential is ${t.outletId} (${t.type}) with ${t.predictedVolumeLmo.toLocaleString()} L/mo and LKR ${t.tradeSpendLKR.toLocaleString()} spend.` });
-        }
-        if (qt === "summary_statistics" && smartContext.summary) {
-          const s = smartContext.summary;
-          return NextResponse.json({ result: `[Offline Mode] ${s.westernProvinceOutlets} outlets are allocated from a LKR ${s.totalBudgetLKR.toLocaleString()} budget (${s.utilizationPct} utilized). Total addressable volume is ${s.totalPredictedVolumeLmo.toLocaleString()} L/mo.` });
-        }
-        if (qt === "specific_outlet_lookup" && smartContext.outlet) {
-          const o = smartContext.outlet;
-          return NextResponse.json({ result: `[Offline Mode] ${o.outletId} is a ${o.size} ${o.type} under ${o.distributor} with ${o.predictedMaxLmo.toLocaleString()} L/mo potential and LKR ${o.tradeSpendLKR.toLocaleString()} trade spend.` });
-        }
-      } catch (e) { /* ignore fallback errors */ }
-    }
-
-    if (isInitialInsight && context?.metrics) {
-      const m = context.metrics;
-      return NextResponse.json({ result: `Operating across ${m.totalOutlets?.toLocaleString()} outlets, with ${m.westernProvinceOutlets?.toLocaleString()} (${m.westernProvinceShare}) in the Western Province. Total addressable volume is ${m.totalAddressableVolume?.toLocaleString()} L/mo with ${m.budgetUtilizationPercentage}% of the LKR 5M budget utilized.` });
-    }
-
-    return NextResponse.json({ result: "I'm in offline mode. Ask about distributors, outlet types, top/worst outlets, budget allocation, or a specific outlet like OUT_02962." });
+    return NextResponse.json({
+      result: buildOfflineResponse({ prompt, context, isInitialInsight }),
+    });
   }
+}
+
+function buildOfflineResponse({
+  prompt,
+  context,
+  isInitialInsight,
+}: {
+  prompt: string;
+  context: unknown;
+  isInitialInsight: boolean;
+}) {
+  // ── Offline fallback: local data queries, no AI needed ──
+  if (!isInitialInsight && prompt) {
+    try {
+      const smartContext: any = buildSmartContext(prompt, context);
+      const qt = smartContext.queryType;
+
+      if (qt === "distributor_breakdown" && smartContext.distributors) {
+        const top = smartContext.distributors[0];
+        return `[Offline Mode] Top distributor by spend is ${top.distributorId} with LKR ${top.totalSpendLKR.toLocaleString()} across ${top.outlets} outlets and ${top.totalPredictedVolumeLmo.toLocaleString()} L/mo predicted volume.`;
+      }
+      if (qt === "outlet_type_breakdown" && smartContext.outletTypes) {
+        const top = smartContext.outletTypes[0];
+        return `[Offline Mode] ${top.type} outlets receive the most budget: LKR ${top.totalSpendLKR.toLocaleString()} across ${top.count} outlets with avg ${top.avgPredictedVolumeLmo.toLocaleString()} L/mo volume.`;
+      }
+      if (qt === "worst_outlets_by_potential" && smartContext.worstOutlets) {
+        const w = smartContext.worstOutlets[0];
+        return `[Offline Mode] The lowest potential outlet is ${w.outletId} (${w.type}, ${w.size}) with only ${w.predictedVolumeLmo.toLocaleString()} L/mo predicted.`;
+      }
+      if (qt === "top_outlets_by_potential" && smartContext.topOutlets) {
+        const t = smartContext.topOutlets[0];
+        return `[Offline Mode] Top outlet by potential is ${t.outletId} (${t.type}) with ${t.predictedVolumeLmo.toLocaleString()} L/mo and LKR ${t.tradeSpendLKR.toLocaleString()} spend.`;
+      }
+      if (qt === "summary_statistics" && smartContext.summary) {
+        const s = smartContext.summary;
+        return `[Offline Mode] ${s.westernProvinceOutlets} outlets are allocated from a LKR ${s.totalBudgetLKR.toLocaleString()} budget (${s.utilizationPct} utilized). Total addressable volume is ${s.totalPredictedVolumeLmo.toLocaleString()} L/mo.`;
+      }
+      if (qt === "specific_outlet_lookup" && smartContext.outlet) {
+        const o = smartContext.outlet;
+        return `[Offline Mode] ${o.outletId} is a ${o.size} ${o.type} under ${o.distributor} with ${o.predictedMaxLmo.toLocaleString()} L/mo potential and LKR ${o.tradeSpendLKR.toLocaleString()} trade spend.`;
+      }
+    } catch {
+      /* ignore fallback errors */
+    }
+  }
+
+  if (isInitialInsight && hasMetrics(context)) {
+    const m = context.metrics;
+    return `Operating across ${m.totalOutlets?.toLocaleString()} outlets, with ${m.westernProvinceOutlets?.toLocaleString()} (${m.westernProvinceShare}) in the Western Province. Total addressable volume is ${m.totalAddressableVolume?.toLocaleString()} L/mo with ${m.budgetUtilizationPercentage}% of the LKR 5M budget utilized.`;
+  }
+
+  return "I'm in offline mode. Ask about distributors, outlet types, top/worst outlets, budget allocation, or a specific outlet like OUT_02962.";
+}
+
+function hasMetrics(context: unknown): context is {
+  metrics: {
+    totalOutlets?: number;
+    westernProvinceOutlets?: number;
+    westernProvinceShare?: string;
+    totalAddressableVolume?: number;
+    budgetUtilizationPercentage?: number;
+  };
+} {
+  return typeof context === "object" && context !== null && "metrics" in context;
 }
