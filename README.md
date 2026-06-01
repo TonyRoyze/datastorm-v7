@@ -1,187 +1,198 @@
-# 🌀 DataStorm 7.0 — Ctrl Freaks
+# Ctrl Freaks — DataStorm 7.0
 
-**Latent Demand Estimation Pipeline for Sri Lanka Beverage Distribution (January 2026 Forecast)**
+**Latent Demand Estimation Pipeline for Sri Lanka Beverage Distribution | January 2026 Forecast**
 
-Built for the [DataStorm 7.0](https://octave.lk/datastorm/) competition by Octave John Keells Group. This project implements a production-grade **Agentic Medallion Architecture** to solve the left-censored demand problem in FMCG distribution.
-
----
-
-## 📋 Table of Contents
-
-- [Overview](#overview)
-- [Key Innovations](#key-innovations)
-- [Architecture](#architecture)
-- [Project Structure](#project-structure)
-- [Pipeline Stages](#pipeline-stages)
-- [Getting Started](#getting-started)
-- [Tech Stack](#tech-stack)
-- [Team](#team)
+This repository estimates uncapped `Maximum_Monthly_Liters` for 20,000 beverage outlets and allocates a LKR 5M promotional budget across the Western Province outlet network. The solution combines a medallion data pipeline, spatial enrichment, Turing reaction-diffusion demand pressure, latent demand modeling, budget optimization, and a Next.js outlet intelligence dashboard.
 
 ---
 
-## Overview
+## What Is Built
 
-Ctrl Freaks' solution addresses the "min(Demand, Constraint)" problem. Observed sales are often capped by supply-side constraints (credit, delivery, storage). We estimate the **true uncapped potential** for 20,000 outlets for January 2026 using a combination of censored regression, spatial diffusion modeling, and peer-group benchmarking.
-
----
-
-## Key Innovations
-
-- **Turing Reaction-Diffusion Feature**: Inspired by Alan Turing's morphogenesis papers, we implemented a Gray-Scott RD system to compute spatial "demand pressure" activator surfaces.
-- **Tobit-Style Censored Regression**: A structural modeling approach that explicitly accounts for left-censoring at observed historical peaks.
-- **Agentic Medallion Pipeline**: A 4-stage pipeline (Agents A-D) that moves data from raw forensic records to model-ready features and final forecasts.
-- **OSM Spatial Enrichment**: Vectorized extraction of 8,750+ POIs via the Overpass API to map outlet catchment density.
-
----
-
-## Architecture
-
-```mermaid
-graph TD
-    subgraph A["(Bronze)"]
-        A1[Raw CSV Ingestion] --> A2[Parquet Conversion]
-    end
-
-    subgraph B["(Silver)"]
-        B1[DQ Audits] --> B2[Quarantine Pattern]
-        B2 --> B3[Flatline Forensic Check]
-    end
-
-    subgraph C["(Gold)"]
-        C1[OSM POI Scraper] --> C2[Turing RD Simulation]
-        C2 --> C3[Feature Engineering]
-    end
-
-    subgraph D["(Model)"]
-        D1[Censoring Threshold Logic] --> D2[Tobit GBR Ensemble]
-        D2 --> D3[SFA & Peer Uplift]
-    end
-
-    A2 --> B1
-    B3 --> C1
-    C3 --> D1
-    D3 --> F[Final CSV Predictions]
-
-    subgraph G["(Web App)"]
-        F --> G1[Export JSON]
-        G1 --> G2[Next.js + react-leaflet]
-        G2 --> G3[Map / Table / Detail]
-    end
-```
+- **Bronze ingestion:** raw CSVs converted to Parquet with schema and null-count manifest.
+- **Silver cleaning:** reusable DQ checks, cleaned Parquet tables, and a unified rejected-record store.
+- **Gold features:** transaction aggregates, POI features, spatial clustering, and Turing RD demand pressure.
+- **Latent demand model:** Tobit-style censored estimation, stochastic frontier uplift, peer-group uplift, and January seasonality adjustment.
+- **Spend optimizer:** LKR 5M Western Province allocation based on predicted upside and commercial guardrails.
+- **Web app:** Next.js 16 dashboard with overview, map, settings, static data exports, and AI/API routes.
 
 ---
 
 ## Project Structure
 
-```
+```text
 .
 ├── data/
-│   ├── bronze/               # Ingested parquet files
-│   ├── silver/               # Cleaned data + rejected records
-│   ├── gold/                 # Feature matrix + Turing RD states
-│   └── predictions/          # Final Submission CSV
-├── report/                   # Formal Typst Report
-│   ├── main.typ              # Entry point
-│   └── sections/             # Modular chapters
+│   ├── raw/                  # Source CSVs
+│   ├── bronze/               # Raw Parquet snapshots + manifest.json
+│   ├── silver/               # Cleaned data + dq_report.json + rejected_records.parquet
+│   ├── gold/                 # Spatial, Turing RD, and model-ready feature artifacts
+│   ├── predictions/          # ctrl_freaks_predictions.csv
+│   └── budget/               # budget allocation outputs
+├── pipeline/
+│   ├── bronze_ingestion.py
+│   ├── dq_checks.py
+│   ├── silver_cleaning.py
+│   └── gold_merger.py
+├── scraping/
+│   └── poi_processor.py      # Overpass/GeoPandas POI enrichment
 ├── src/
-│   ├── bronze/               # Ingestion
-│   ├── silver/               # DQ & Forensics
-│   ├── gold/                 # POIs & Turing RD
-│   ├── model/                # Latent Demand Modeling
-│   └── eda/                  # Analysis & Diagnostic Scripts
-├── web/                      # Outlet Intelligence Web App
-│   ├── app/                  # Next.js pages + API routes
-│   ├── components/           # React components
-│   ├── lib/                  # Types + utils
-│   ├── public/data/          # Generated outlet JSON
-│   └── (config files...)
-├── outputs/                  # Diagnostic Visualizations
-├── run_pipeline.sh           # End-to-End Runner
-└── params.yaml               # Pipeline configuration
+│   ├── eda/                  # EDA and spatial diagnostics
+│   ├── gold/turing_rd.py     # Turing reaction-diffusion feature
+│   ├── model/latent_demand.py
+│   └── spend/optimizer.py
+├── web/                      # Next.js outlet dashboard
+├── outputs/                  # Diagnostic plots
+├── DONE_SO_FAR.md
+├── run_pipeline.sh
+├── requirements.txt
+└── README.md
 ```
 
 ---
 
-## Pipeline Stages
+## Prerequisites
 
-### 1️⃣ Bronze (Ingestion)
-Converts raw CSV streams into type-strict Parquet structures, preserving $100\%$ of source signals with zero-loss compression.
-
-### 2️⃣ Silver (Forensics)
-Applies a **Quarantine Pattern** to trap anomalies. Implements the **Historical Flatline Check** to detect outlets whose sales are artificially capped by credit or delivery cycles.
-
-### 3️⃣ Gold (Feature Engineering)
-- **Overpass Scraper**: Fetches nationwide POI data (Schools, Markets, Bus Stations).
-- **Turing RD**: Runs a 500-step Gray-Scott simulation to derive the `rd_demand_pressure` spatial activator feature.
-
-### 4️⃣ Model (Latent Estimation)
-- **Tobit Ensemble**: A 50/30/20 weighted ensemble of Censored Gradient Boosting, Stochastic Frontier Analysis (SFA), and Peer-Group Uplift.
-- **January Adjustment**: Applies a seasonal index to account for peak demand cycles.
+- Python 3.9+
+- Node.js 20+
+- pnpm 9+
 
 ---
 
-## Getting Started
+## Setup
 
-### Prerequisites (Data Pipeline & Report)
-- Python 3.9+
-- [Typst](https://typst.app/) (for report generation)
-
-### Prerequisites (Web App)
-- Node.js 20+ (for the web app)
-- npm 9+ (for the web app)
-
-### Installation
 ```bash
-# Python dependencies
-pip install pandas numpy scipy scikit-learn matplotlib seaborn pyarrow geopandas
+# Python environment
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 
 # Web app dependencies
-npm install --prefix web
+pnpm install --prefix web
 ```
 
-### Running the Full Pipeline
-The provided shell script executes the end-to-end flow from data ingestion to final predictions and report-ready EDA:
+If `uv` is installed, `run_pipeline.sh` will create/use `.venv` and install `requirements.txt` automatically.
+
+---
+
+## Run the Full Pipeline
 
 ```bash
 chmod +x run_pipeline.sh
 ./run_pipeline.sh
 ```
 
-### Running the Web App
-The Outlet Intelligence Web App visualizes predictions on an interactive map. Make sure you have the pre-generated JSON files in `web/public/data/`.
+You can resume from a specific phase:
 
 ```bash
-# Start Next.js dev server
-npm run dev --prefix web
-# → http://localhost:3000
+./run_pipeline.sh --start-from 7
 ```
 
-To build for production:
-```bash
-npm run build --prefix web
-npm run start --prefix web
-```
-
-### Compiling the Report
-To generate the formal PDF report:
-```bash
-typst compile report/main.typ --root .
-```
+| Phase | Description |
+|---:|---|
+| 1 | Bronze raw ingestion |
+| 2 | Silver data quality and cleaning |
+| 3 | Gold POI spatial enrichment |
+| 4 | Gold feature assembly |
+| 5 | Gold EDA / Turing RD prep |
+| 6 | Turing reaction-diffusion |
+| 7 | Latent demand estimation |
+| 8 | Budget optimization |
+| 9 | JSON and web asset export |
+| 10 | Output validation |
 
 ---
 
-## Tech Stack
+## Important Outputs
 
-| Domain | Tools |
+| Output | Rows | Purpose |
+|---|---:|---|
+| `data/predictions/ctrl_freaks_predictions.csv` | 20,000 | `Outlet_ID`, `Maximum_Monthly_Liters` |
+| `data/budget/ctrl_freaks_budget_allocations.csv` | 1,799 | Submission-friendly spend output |
+| `data/budget/ctrl_freaks_budget_mapping.csv` | 1,799 | Detailed spend audit with spend type and upside |
+| `data/silver/rejected_records.parquet` | 49,106 | Unified quarantine store |
+| `data/gold/master_training_data.parquet` | 20,000 | Gold model matrix |
+| `data/gold/turing_outlet_features.parquet` | 19,960 | Outlet-level RD/spatial features |
+| `web/public/data/*.json` | varies | Static web dashboard data |
+
+---
+
+## Run the Web App
+
+```bash
+pnpm run dev --prefix web
+```
+
+Open [http://localhost:3000](http://localhost:3000).
+
+Production commands:
+
+```bash
+pnpm run build --prefix web
+pnpm run start --prefix web
+```
+
+Quality commands:
+
+```bash
+pnpm run lint --prefix web
+pnpm run typecheck --prefix web
+pnpm run format --prefix web
+```
+
+Current routes:
+
+| Route | Purpose |
 |---|---|
-| **Pipeline** | Apache Arrow, Python |
-| **Analysis** | Pandas, SciPy, Scikit-Learn |
-| **Spatial** | GeoPandas, Overpass API, Shapely |
-| **Web App** | Next.js 15, shadcn/ui, react-leaflet, Leaflet |
+| `/` | Overview dashboard and outlet data table |
+| `/map` | Western Province outlet map |
+| `/settings` | Data, AI, and pipeline configuration surface |
+| `/api/chat` | AI chat endpoint |
+| `/api/outlet-insight` | Outlet insight endpoint |
 
 ---
 
-## Team — Ctrl Freaks
+## Modeling Summary
 
-- **Sukitha Rathnayake** — MLOps, DQ Forensics, Ensemble Logic
-- **Vidura Gunawardana** — Pipeline Architecture, Turing RD, Tobit Modeling
+The modeling layer treats observed sales as capped demand:
+
+```text
+observed = min(true_demand, constraint_ceiling)
+```
+
+The implemented model estimates potential using:
+
+- constraint score and censoring threshold logic
+- Tobit-style regression trained on outlets treated as unconstrained
+- stochastic frontier uplift
+- nearest-peer 90th percentile uplift
+- January and distributor seasonality adjustment
+- prediction floor at observed maximum monthly volume
+- peer-based cap to avoid unrealistic extrapolation
+
+---
+
+## Budget Optimization Summary
+
+The Western Province optimizer:
+
+- filters outlets from `DIST_W_01`, `DIST_W_02`, and `DIST_W_03`
+- computes upside as `predicted potential - historical max`
+- excludes zero-upside outlets
+- ranks outlets by upside
+- allocates LKR 5M across three tiers
+- assigns `discount`, `merchandising`, or `promotional` spend type
+- writes both simple submission output and detailed audit output
+
+Current allocation:
+
+- **1,799** funded outlets
+- **LKR 5,000,000** fully allocated
+- approximately **1.65M liters** of funded upside represented
+
+---
+
+## Team
+
+- **Sukitha Rathnayake** — MLOps, DQ forensics, ensemble logic, GenAI
+- **Vidura Gunawardana** — pipeline architecture, Turing RD, latent demand modeling, web app
+- **Prabhavi Hemachandra** — final-round documentation, business narrative, presentation support

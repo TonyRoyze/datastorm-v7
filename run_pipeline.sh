@@ -80,7 +80,8 @@ import pandas as pd, json, os
 outlets = pd.read_parquet('${SCRIPT_DIR}/data/silver/outlets.parquet')
 coords = pd.read_parquet('${SCRIPT_DIR}/data/silver/coordinates.parquet')
 merged = outlets[['Outlet_ID']].merge(coords, on='Outlet_ID', how='left')
-merged['Longitude'] = merged['Longitude']  # no shift — silver already has correct Sri Lanka coords
+merged['Latitude'] = merged['Latitude'] + 0.078
+merged['Longitude'] = merged['Longitude'] + 0.058
 merged.to_csv('${SCRIPT_DIR}/data/raw/outlet_coordinates.csv', index=False)
 print(f'Coordinates CSV: {len(merged)} rows')
 
@@ -114,6 +115,72 @@ if os.path.exists(coords_path):
 else:
     print(f'  [WARN] Coordinates not found: {coords_path}')
 
+# ── Merge into single outlets.json (DIST_W* only) ──────────────
+PUBLIC = '${SCRIPT_DIR}/web/public/data'
+RAW = '${SCRIPT_DIR}/data/raw'
+DATA = '${SCRIPT_DIR}'
+pred_df = pd.read_csv(f'{PUBLIC}/predictions.csv')
+coord_df = pd.read_csv(f'{PUBLIC}/outlet_coordinates.csv')
+master_df = pd.read_csv(f'{RAW}/outlet_master.csv')
+budget_path = f'{DATA}/data/budget/ctrl_freaks_budget_mapping.csv'
+budget_df = pd.read_csv(budget_path) if os.path.exists(budget_path) else None
+txn_df = pd.read_csv(f'{RAW}/transactions_history_final.csv')
+
+dist_map = (
+    txn_df.groupby('Outlet_ID')['Distributor_ID']
+    .agg(lambda x: x.mode().iloc[0] if not x.mode().empty else None)
+    .reset_index()
+)
+
+merged = pred_df.merge(coord_df, on='Outlet_ID', how='left') \
+                .merge(master_df, on='Outlet_ID', how='left') \
+                .merge(dist_map, on='Outlet_ID', how='left')
+
+if budget_df is not None:
+    merged = merged.merge(budget_df[['Outlet_ID', 'Trade_Spend_LKR']], on='Outlet_ID', how='left')
+else:
+    merged['Trade_Spend_LKR'] = 0
+
+merged['Trade_Spend_LKR'] = merged['Trade_Spend_LKR'].fillna(0).round(2)
+merged['Cooler_Count'] = merged['Cooler_Count'].fillna(0).astype(int)
+
+for col in merged.select_dtypes(include='object').columns:
+    merged[col] = merged[col].fillna('')
+for col in merged.select_dtypes(include=['float64', 'int64']).columns:
+    merged[col] = merged[col].fillna(0)
+
+out = merged[[
+    'Outlet_ID', 'Latitude', 'Longitude',
+    'Outlet_Type', 'Outlet_Size', 'Cooler_Count',
+    'Distributor_ID',
+    'Maximum_Monthly_Liters', 'Trade_Spend_LKR',
+]].to_dict(orient='records')
+
+with open(f'{PUBLIC}/outlets.json', 'w') as f:
+    json.dump(out, f, indent=2)
+
+print(f'Merged outlets.json: {len(out)} rows')
+
+manifest = []
+for filename in ['outlets.json', 'predictions.json', 'budget_allocations.json', 'outlet_coordinates.json']:
+    file_path = f'{PUBLIC}/{filename}'
+    if os.path.exists(file_path):
+        try:
+            with open(file_path) as f:
+                row_count = len(json.load(f))
+        except Exception:
+            row_count = 0
+        manifest.append({
+            'filename': filename,
+            'row_count': row_count,
+            'bytes': os.path.getsize(file_path),
+            'generated_at': pd.Timestamp.utcnow().isoformat(),
+        })
+
+with open(f'{PUBLIC}/analysis_manifest.json', 'w') as f:
+    json.dump({'datasets': manifest}, f, indent=2)
+
+print(f'Analysis backend manifest: {len(manifest)} datasets')
 "
 else echo "  [SKIP] Phase 9"; fi
 

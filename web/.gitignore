@@ -37,4 +37,4 @@ pnpm-debug.log*
 next-env.d.ts
 
 map-examples/
-/data/
+public/data/
