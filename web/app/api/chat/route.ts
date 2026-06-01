@@ -287,8 +287,15 @@ function buildSmartContext(question: string, pageContext: any): object {
     };
   }
 
-  // ── Default: return the rich static context from the page ──
-  return { question, queryType: "general", pageContext };
+  // ── Default: send only the compact metrics + summaries (not the full 45-outlet
+  // record arrays) so unrecognised questions don't dump thousands of tokens to Groq.
+  const { pageName, metrics, outletTypeSummary, distributorSummary } = pageContext ?? {};
+  return {
+    question,
+    queryType: "general",
+    note: "Answer based on the aggregated metrics and summaries below. If the question is outside this data, say so honestly.",
+    pageContext: { pageName, metrics, outletTypeSummary, distributorSummary },
+  };
 }
 
 // ─── Main Route Handler ───────────────────────────────────────────────────────
@@ -326,6 +333,7 @@ Write a 2-3 sentence business summary highlighting the key takeaways (e.g. total
         ],
         model: "llama-3.1-8b-instant",
         temperature: 0.4,
+        max_tokens: 150, // 2-3 sentences is all we need; keeps token usage predictable
       });
       const text = completion.choices[0]?.message?.content || "No response generated.";
       return NextResponse.json({ result: text });

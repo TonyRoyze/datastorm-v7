@@ -63,6 +63,7 @@ Respond ONLY with this JSON structure (no other text):
       ],
       model: "llama-3.1-8b-instant",
       temperature: 0.4,
+      max_tokens: 250, // structured JSON response is always <200 tokens; cap prevents overrun
     });
 
     const rawText = completion.choices[0]?.message?.content || "{}";

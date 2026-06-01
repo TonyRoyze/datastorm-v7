@@ -251,19 +251,29 @@ function SpendTypeBadge({ type }: { type: string }) {
 
 function OutletInsightCell({
   row,
-  cache,
-  setCache,
+  cacheRef,
+  onCached,
 }: {
   row: OutletRow
-  cache: Map<string, InsightResult>
-  setCache: React.Dispatch<React.SetStateAction<Map<string, InsightResult>>>
+  cacheRef: React.RefObject<Map<string, InsightResult>>
+  onCached: (id: string, data: InsightResult) => void
 }) {
   const [isOpen, setIsOpen] = React.useState(false)
   const [isLoading, setIsLoading] = React.useState(false)
-  const cached = cache.get(row.Outlet_ID)
+  // Insight lives in local state so updating it never re-renders the whole table.
+  // On first mount we seed from the shared ref cache (handles the case where the
+  // same outlet appears on multiple pages and was already fetched).
+  const [insight, setInsight] = React.useState<InsightResult | null>(
+    () => cacheRef.current.get(row.Outlet_ID) ?? null
+  )
 
-  const generateInsight = async () => {
-    if (cached) return
+  const generateInsight = React.useCallback(async () => {
+    // Already have a result — nothing to do.
+    const cached = cacheRef.current.get(row.Outlet_ID)
+    if (cached) {
+      setInsight(cached)
+      return
+    }
     setIsLoading(true)
     try {
       const res = await fetch("/api/outlet-insight", {
@@ -272,7 +282,9 @@ function OutletInsightCell({
         body: JSON.stringify({ outlet: row }),
       })
       const data = await res.json()
-      setCache((prev) => new Map(prev).set(row.Outlet_ID, data))
+      // Write into shared ref (no parent re-render) and local state (only this cell re-renders).
+      onCached(row.Outlet_ID, data)
+      setInsight(data)
     } catch {
       const fallback: InsightResult = {
         verdict: `${row.Outlet_ID} is a ${row.Outlet_Size ?? ""} ${row.Outlet_Type ?? "outlet"} with a predicted potential of ${row.Maximum_Monthly_Liters?.toLocaleString() ?? "N/A"} L/mo.`,
@@ -287,18 +299,17 @@ function OutletInsightCell({
         ],
         recommendedAction: `Apply ${row.Spend_Type} spend of ${fmtMoney(Math.round(row.Trade_Spend_LKR))}.`,
       }
-      setCache((prev) => new Map(prev).set(row.Outlet_ID, fallback))
+      onCached(row.Outlet_ID, fallback)
+      setInsight(fallback)
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [row, cacheRef, onCached])
 
   const handleOpen = (open: boolean) => {
     setIsOpen(open)
-    if (open && !cached) generateInsight()
+    if (open && !insight) generateInsight()
   }
-
-  const insight = cached
 
   return (
     <div className="flex justify-end">
@@ -307,10 +318,10 @@ function OutletInsightCell({
           <Button
             variant="ghost"
             size="sm"
-            className="h-8 gap-1 border border-blue-200 bg-blue-50/50 text-xs font-medium text-blue-600 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-900/20 dark:text-blue-400 dark:hover:bg-blue-900/40"
+            className={`h-8 gap-1 border border-blue-200 bg-blue-50/50 text-xs font-medium text-blue-600 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-900/20 dark:text-blue-400 dark:hover:bg-blue-900/40 ${isLoading ? "animate-pulse" : ""}`}
           >
-            <Sparkles className="size-3.5" />
-            {cached ? "View Insight" : "Generate"}
+            {isLoading ? <Loader2 className="size-3.5 animate-spin" /> : <Sparkles className="size-3.5" />}
+            Insight
           </Button>
         </DialogTrigger>
         <DialogContent className="sm:max-w-[500px]">
@@ -396,11 +407,9 @@ function OutletInsightCell({
                   {insight.recommendedAction}
                 </p>
               </div>
-              {cached && (
-                <p className="text-right text-[10px] text-muted-foreground">
-                  ✓ Powered by Groq · Llama 3.1 · Cached
-                </p>
-              )}
+              <p className="text-right text-[10px] text-muted-foreground">
+                ✓ Powered by Groq · Llama 3.1
+              </p>
             </div>
           ) : null}
         </DialogContent>
@@ -426,9 +435,14 @@ export function DataTable({ data }: { data: OutletRow[] }) {
     pageIndex: 0,
     pageSize: 10,
   })
-  const [insightCache, setInsightCache] = React.useState<
-    Map<string, InsightResult>
-  >(new Map())
+  // Use a ref for the shared insight cache so writing to it never triggers a
+  // re-render of the whole table (which would unmount cells and reset isOpen).
+  const insightCacheRef = React.useRef<Map<string, InsightResult>>(new Map())
+  const [cachedCount, setCachedCount] = React.useState(0)
+  const updateCache = React.useCallback((id: string, data: InsightResult) => {
+    insightCacheRef.current.set(id, data)
+    setCachedCount(insightCacheRef.current.size)
+  }, [])
 
   const columns: ColumnDef<OutletRow>[] = React.useMemo(
     () => [
@@ -584,14 +598,14 @@ export function DataTable({ data }: { data: OutletRow[] }) {
         cell: ({ row }) => (
           <OutletInsightCell
             row={row.original}
-            cache={insightCache}
-            setCache={setInsightCache}
+            cacheRef={insightCacheRef}
+            onCached={updateCache}
           />
         ),
         enableSorting: false,
       },
     ],
-    [insightCache]
+    [updateCache] // updateCache is stable (useCallback []); columns never re-create
   )
 
   const table = useReactTable({
@@ -664,9 +678,9 @@ export function DataTable({ data }: { data: OutletRow[] }) {
           {fmtMoney(Math.round(totalBudget))} total
         </div>
         <div className="flex items-center gap-3">
-          {insightCache.size > 0 && (
+          {cachedCount > 0 && (
             <div className="text-xs text-muted-foreground">
-              {insightCache.size} insight{insightCache.size !== 1 ? "s" : ""}{" "}
+              {cachedCount} insight{cachedCount !== 1 ? "s" : ""}{" "}
               cached
             </div>
           )}
