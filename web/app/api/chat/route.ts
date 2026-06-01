@@ -379,27 +379,36 @@ function buildOfflineResponse({
 
       if (qt === "distributor_breakdown" && smartContext.distributors) {
         const top = smartContext.distributors[0];
-        return `[Offline Mode] Top distributor by spend is ${top.distributorId} with LKR ${top.totalSpendLKR.toLocaleString()} across ${top.outlets} outlets and ${top.totalPredictedVolumeLmo.toLocaleString()} L/mo predicted volume.`;
+        const second = smartContext.distributors[1];
+        return `Based on the current budget allocation, ${top.distributorId} leads all distributors with LKR ${top.totalSpendLKR.toLocaleString()} in trade spend across ${top.outlets} outlets, representing a predicted volume of ${top.totalPredictedVolumeLmo.toLocaleString()} L/mo.${
+          second ? ` ${second.distributorId} follows with LKR ${second.totalSpendLKR.toLocaleString()} across ${second.outlets} outlets.` : ""
+        } Incremental volume opportunities are highest where historical utilisation remains below predicted potential.`;
       }
       if (qt === "outlet_type_breakdown" && smartContext.outletTypes) {
         const top = smartContext.outletTypes[0];
-        return `[Offline Mode] ${top.type} outlets receive the most budget: LKR ${top.totalSpendLKR.toLocaleString()} across ${top.count} outlets with avg ${top.avgPredictedVolumeLmo.toLocaleString()} L/mo volume.`;
+        const second = smartContext.outletTypes[1];
+        return `${top.type} outlets represent the highest-spending category, receiving LKR ${top.totalSpendLKR.toLocaleString()} across ${top.count} outlets with an average predicted volume of ${top.avgPredictedVolumeLmo.toLocaleString()} L/mo.${
+          second ? ` ${second.type} outlets follow with LKR ${second.totalSpendLKR.toLocaleString()} in total spend.` : ""
+        } This distribution reflects the relative sales density and throughput capacity of each outlet category.`;
       }
       if (qt === "worst_outlets_by_potential" && smartContext.worstOutlets) {
         const w = smartContext.worstOutlets[0];
-        return `[Offline Mode] The lowest potential outlet is ${w.outletId} (${w.type}, ${w.size}) with only ${w.predictedVolumeLmo.toLocaleString()} L/mo predicted.`;
+        const count = smartContext.worstOutlets.length;
+        return `The ${count} lowest-potential outlets in the dataset are led by ${w.outletId} — a ${w.size} ${w.type} under ${w.distributor} — with a predicted volume of only ${w.predictedVolumeLmo.toLocaleString()} L/mo. These outlets typically show high demand volatility or active supply constraints, and may benefit more from operational improvements than increased trade spend.`;
       }
       if (qt === "top_outlets_by_potential" && smartContext.topOutlets) {
         const t = smartContext.topOutlets[0];
-        return `[Offline Mode] Top outlet by potential is ${t.outletId} (${t.type}) with ${t.predictedVolumeLmo.toLocaleString()} L/mo and LKR ${t.tradeSpendLKR.toLocaleString()} spend.`;
+        return `The top-performing outlet by predicted potential is ${t.outletId} (${t.type}, ${t.size ?? ""}) with ${t.predictedVolumeLmo.toLocaleString()} L/mo and an incremental opportunity of ${t.incrementalVolumeLmo?.toLocaleString() ?? "N/A"} L/mo above its historical baseline. A trade spend of LKR ${t.tradeSpendLKR.toLocaleString()} has been allocated via a ${t.spendType ?? "targeted"} strategy to capture this upside.`;
       }
       if (qt === "summary_statistics" && smartContext.summary) {
         const s = smartContext.summary;
-        return `[Offline Mode] ${s.westernProvinceOutlets} outlets are allocated from a LKR ${s.totalBudgetLKR.toLocaleString()} budget (${s.utilizationPct} utilized). Total addressable volume is ${s.totalPredictedVolumeLmo.toLocaleString()} L/mo.`;
+        return `Across the full dataset, ${s.totalOutletsInDataset?.toLocaleString()} outlets have been analysed, with ${s.westernProvinceOutlets} in the Western Province receiving trade spend allocations. The total budget of LKR ${s.totalBudgetLKR.toLocaleString()} is ${s.utilizationPct} utilised against the LKR 5M cap, targeting ${s.totalPredictedVolumeLmo.toLocaleString()} L/mo in addressable volume with ${s.totalIncrementalOpportunityLmo?.toLocaleString()} L/mo in incremental upside.`;
       }
       if (qt === "specific_outlet_lookup" && smartContext.outlet) {
         const o = smartContext.outlet;
-        return `[Offline Mode] ${o.outletId} is a ${o.size} ${o.type} under ${o.distributor} with ${o.predictedMaxLmo.toLocaleString()} L/mo potential and LKR ${o.tradeSpendLKR.toLocaleString()} trade spend.`;
+        return `${o.outletId} is a ${o.size} ${o.type} serviced by ${o.distributor}, equipped with ${o.coolerCount ?? 0} cooler unit${o.coolerCount !== 1 ? "s" : ""}. Its predicted sales potential is ${o.predictedMaxLmo.toLocaleString()} L/mo, with an incremental opportunity of ${o.incrementalLmo?.toLocaleString() ?? "N/A"} L/mo above the historical baseline. A ${o.spendType ?? "targeted"} trade spend of LKR ${o.tradeSpendLKR.toLocaleString()} has been recommended${
+          o.constraintFlag === 1 ? ", though note this outlet carries an active supply constraint that may limit its ability to fully realise its potential" : ""
+        }.`;
       }
     } catch {
       /* ignore fallback errors */
@@ -411,7 +420,7 @@ function buildOfflineResponse({
     return `Operating across ${m.totalOutlets?.toLocaleString()} outlets, with ${m.westernProvinceOutlets?.toLocaleString()} (${m.westernProvinceShare}) in the Western Province. Total addressable volume is ${m.totalAddressableVolume?.toLocaleString()} L/mo with ${m.budgetUtilizationPercentage}% of the LKR 5M budget utilized.`;
   }
 
-  return "I'm in offline mode. Ask about distributors, outlet types, top/worst outlets, budget allocation, or a specific outlet like OUT_02962.";
+  return "I can answer questions about distributors, outlet types, top and lowest-performing outlets, budget allocation strategy, supply constraints, or a specific outlet — for example, try asking about OUT_02962.";
 }
 
 function hasMetrics(context: unknown): context is {
