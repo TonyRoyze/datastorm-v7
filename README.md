@@ -195,4 +195,3 @@ Current allocation:
 
 - **Sukitha Rathnayake** — MLOps, DQ forensics, ensemble logic, GenAI
 - **Vidura Gunawardana** — pipeline architecture, Turing RD, latent demand modeling, web app
-- **Prabhavi Hemachandra** — final-round documentation, business narrative, presentation support
