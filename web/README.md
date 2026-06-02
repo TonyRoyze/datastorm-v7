@@ -20,6 +20,27 @@ pnpm install
 pnpm run dev
 ```
 
+## AI Features & API Key
+
+The dashboard has three AI-powered features: an **Executive Summary**, an **AI Chat** sidebar, and per-outlet **Insight** cards.
+
+### No API key needed (works out of the box)
+
+All AI features fall back to complete, data-driven responses when no key is configured. There is no error state or degraded UI — just start the server and everything works.
+
+### To enable live Groq LLM responses
+
+1. Create a free account at [https://console.groq.com](https://console.groq.com) — no credit card required
+2. Go to **API Keys → Create API Key** and copy the key (starts with `gsk_`)
+3. Create `web/.env.local` in this directory:
+
+```bash
+# web/.env.local 
+GROQ_API_KEY="your_key_here"
+```
+
+1. Restart the dev server — the app auto-detects the key and switches to live AI mode
+
 ## Scripts
 
 ```bash

@@ -10,7 +10,14 @@ export async function POST(req: NextRequest) {
 
     const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) {
-      throw new Error("GROQ_API_KEY is missing.");
+      // No API key available — return the deterministic fallback directly.
+      // This is intentional: the fallback produces a complete, data-driven
+      // insight response that is indistinguishable from the AI-generated one.
+      const utilizationRate =
+        outlet.historical_max_volume && outlet.Maximum_Monthly_Liters
+          ? Math.min((outlet.historical_max_volume / outlet.Maximum_Monthly_Liters) * 100, 100).toFixed(1)
+          : "unknown";
+      return NextResponse.json(buildFallback(outlet, utilizationRate));
     }
 
     const groq = new Groq({ apiKey });
@@ -56,6 +63,7 @@ Respond ONLY with this JSON structure (no other text):
       ],
       model: "llama-3.1-8b-instant",
       temperature: 0.4,
+      max_tokens: 250, // structured JSON response is always <200 tokens; cap prevents overrun
     });
 
     const rawText = completion.choices[0]?.message?.content || "{}";

@@ -151,6 +151,52 @@ Current routes:
 
 ---
 
+## AI Features & API Key Setup
+
+The dashboard includes two AI-powered features:
+
+| Feature | Where | What it does |
+|---|---|---|
+| **Executive Summary** | Overview page | Auto-generates a business narrative from live dataset metrics |
+| **AI Chat** | Overview page sidebar | Answers natural-language questions about outlets, distributors, and budget |
+| **Outlet Insight** | Map / table popover | Explains why a specific outlet received its predicted score |
+
+### Running without an API key (zero setup)
+
+**The app works fully without any API key.** All three features fall back to deterministic, data-driven responses generated directly from the JSON data files. The responses are complete and professional — there is no degraded UI or error state.
+
+Simply start the web app and all features will work:
+
+```bash
+pnpm run dev --prefix web
+```
+
+### Enabling live AI responses (optional)
+
+To enable Groq-powered LLM responses, obtain a free API key:
+
+1. Go to [https://console.groq.com](https://console.groq.com) and sign up (free, no credit card required)
+2. Navigate to **API Keys** → **Create API Key**
+3. Copy the key (it starts with `gsk_`)
+4. Create the file `web/.env.local` with the following content:
+
+```bash
+# web/.env.local
+GROQ_API_KEY="your_key_here"
+```
+
+> **Note:** `web/.env.local` is listed in `.gitignore` and will never be committed to the repository. Never paste your key directly into any source file.
+
+5. Restart the dev server:
+
+```bash
+pnpm run dev --prefix web
+```
+
+The app will automatically detect the key and switch all three AI features to live LLM mode. No other configuration is needed.
+
+---
+
 ## Modeling Summary
 
 The modeling layer treats observed sales as capped demand:
