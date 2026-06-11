@@ -187,7 +187,7 @@ GROQ_API_KEY="your_key_here"
 
 > **Note:** `web/.env.local` is listed in `.gitignore` and will never be committed to the repository. Never paste your key directly into any source file.
 
-5. Restart the dev server:
+1. Restart the dev server:
 
 ```bash
 pnpm run dev --prefix web

@@ -29,8 +29,8 @@ function optNumber(value: unknown): number | undefined {
 export default function MapPage() {
   const outletRows = readJSON("outlets.json")
   const coordinates = outletRows.length > 0 ? outletRows : readJSON("outlet_coordinates.json")
-  const predictions = outletRows.length > 0 ? [] : readJSON("predictions.json")
-  const budgetAllocations = outletRows.length > 0 ? [] : readJSON("budget_allocations.json")
+  const predictions = readJSON("predictions.json")
+  const budgetAllocations = readJSON("budget_allocations.json")
 
   const predictionByOutlet = new Map(
     predictions.map((row) => [
@@ -54,7 +54,7 @@ export default function MapPage() {
         Maximum_Monthly_Liters:
           asNumber(row.Maximum_Monthly_Liters) ||
           predictionByOutlet.get(outletId) ||
-          0,
+          asNumber(b.Maximum_Monthly_Liters),
         Distributor_ID: String(row.Distributor_ID ?? b.Distributor_ID ?? ""),
         Outlet_Type: String(row.Outlet_Type ?? b.Outlet_Type ?? ""),
         Outlet_Size: String(row.Outlet_Size ?? b.Outlet_Size ?? ""),

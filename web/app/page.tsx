@@ -1,239 +1,465 @@
-import fs from "fs"
-import path from "path"
-import { DataTable } from "@/components/data-table"
-import { SectionCards, type CardData } from "@/components/section-cards"
-import { PageContextSetter } from "@/components/page-context-setter"
+import Link from "next/link"
+import type { ReactNode } from "react"
+import {
+  ArrowRight,
+  BadgeDollarSign,
+  Banknote,
+  CircleAlert,
+  MapPin,
+  Sparkles,
+  Target,
+  TrendingUp,
+  Trophy,
+  Zap,
+} from "lucide-react"
+
 import { JitInsights } from "@/components/jit-insights"
-
-const DATA_DIR = path.join(process.cwd(), "public", "data")
-
-import { cache } from "react"
+import { PageContextSetter } from "@/components/page-context-setter"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { getDashboardData, type DataRow } from "@/lib/dashboard-data"
 import { fmtMoney, fmtNumber } from "@/lib/utils"
-const fsPromises = fs.promises
 
-const readJSON = cache(async (filename: string): Promise<any[]> => {
-  const p = path.join(DATA_DIR, filename)
-  if (!fs.existsSync(p)) return []
-  const fileContent = await fsPromises.readFile(p, "utf-8")
-  return JSON.parse(fileContent)
-})
+const pct = (value: number) => `${value.toFixed(1)}%`
 
-const isWesternProvince = (lat: number, lng: number) =>
-  lat >= 6.4 && lat <= 7.2 && lng >= 79.7 && lng <= 80.2
+function SummaryStat({
+  label,
+  value,
+  detail,
+  icon,
+}: {
+  label: string
+  value: string
+  detail: string
+  icon: ReactNode
+}) {
+  return (
+    <div className="rounded-lg border bg-background/80 p-4 shadow-xs">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <p className="text-sm font-medium text-muted-foreground">{label}</p>
+        <div className="rounded-md bg-primary/10 p-2 text-primary">{icon}</div>
+      </div>
+      <p className="text-2xl font-semibold tracking-normal tabular-nums">
+        {value}
+      </p>
+      <p className="mt-1 text-sm text-muted-foreground">{detail}</p>
+    </div>
+  )
+}
+
+function AllocationBar({
+  label,
+  value,
+  share,
+  tone,
+}: {
+  label: string
+  value: string
+  share: number
+  tone: string
+}) {
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-3 text-sm">
+        <span className="font-medium capitalize">{label}</span>
+        <span className="text-muted-foreground">{value}</span>
+      </div>
+      <div className="h-3 overflow-hidden rounded-full bg-muted">
+        <div
+          className={`h-full rounded-full ${tone}`}
+          style={{ width: `${Math.max(share, 2)}%` }}
+        />
+      </div>
+      <p className="text-xs text-muted-foreground">{pct(share)} of spend</p>
+    </div>
+  )
+}
+
+function OutletHighlight({
+  outlet,
+  label,
+  icon,
+  accent,
+  metric,
+}: {
+  outlet: DataRow
+  label: string
+  icon: ReactNode
+  accent: string
+  metric: string
+}) {
+  return (
+    <div className="rounded-lg border bg-card p-4 shadow-xs">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="font-mono text-sm font-semibold">{outlet.Outlet_ID}</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {outlet.Outlet_Type ?? "Outlet"} | {outlet.Outlet_Size ?? "Unknown"} |{" "}
+            {outlet.Distributor_ID ?? "No distributor"}
+          </p>
+        </div>
+        <div className={`rounded-md p-2 ${accent}`}>{icon}</div>
+      </div>
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <Badge variant="outline" className="capitalize">
+          {outlet.Spend_Type ?? "planned"}
+        </Badge>
+        {outlet.constraint_flag === 1 && (
+          <Badge variant="destructive">Constrained</Badge>
+        )}
+      </div>
+      <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+        <div>
+          <p className="text-xs text-muted-foreground">Trade spend</p>
+          <p className="font-semibold tabular-nums">
+            {fmtMoney(Math.round(outlet.Trade_Spend_LKR ?? 0))}
+          </p>
+        </div>
+        <div>
+          <p className="text-xs text-muted-foreground">{label}</p>
+          <p className="font-semibold tabular-nums">{metric}</p>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export default async function OverviewPage() {
-  const coords = await readJSON("outlet_coordinates.json")
-  const preds = await readJSON("predictions.json")
-  const budget = await readJSON("budget_allocations.json")
-  const outlets = await readJSON("outlets.json")
-
-  const predictionByOutlet = new Map(
-    preds.map((p: any) => [p.Outlet_ID, p.Maximum_Monthly_Liters ?? 0])
-  )
-  const budgetByOutlet = new Map(
-    budget.map((b: any) => [b.Outlet_ID, b.Trade_Spend_LKR ?? 0])
-  )
-  const spendTypeByOutlet = new Map(
-    budget.map((b: any) => [b.Outlet_ID, b.Spend_Type ?? "Not funded"])
-  )
-
-  const allOutletRows =
-    outlets.length > 0
-      ? outlets.map((outlet: any) => ({
-          ...outlet,
-          Maximum_Monthly_Liters: outlet.Maximum_Monthly_Liters ?? 0,
-          Trade_Spend_LKR: outlet.Trade_Spend_LKR ?? 0,
-          Spend_Type:
-            outlet.Spend_Type ??
-            spendTypeByOutlet.get(outlet.Outlet_ID) ??
-            "Not funded",
-        }))
-      : coords.map((coord: any) => ({
-          Outlet_ID: coord.Outlet_ID,
-          Latitude: coord.Latitude,
-          Longitude: coord.Longitude,
-          Maximum_Monthly_Liters: predictionByOutlet.get(coord.Outlet_ID) ?? 0,
-          Trade_Spend_LKR: budgetByOutlet.get(coord.Outlet_ID) ?? 0,
-          Spend_Type: spendTypeByOutlet.get(coord.Outlet_ID) ?? "Not funded",
-        }))
-
-  const validCoords = coords.filter(
-    (c: any) =>
-      typeof c.Latitude === "number" && typeof c.Longitude === "number"
-  )
-  const wpCoords = validCoords.filter((c: any) =>
-    isWesternProvince(c.Latitude, c.Longitude)
-  )
-
-  const totalVolume = preds.reduce(
-    (s: number, p: any) => s + (p.Maximum_Monthly_Liters ?? 0),
-    0
-  )
-  const avgVolume = preds.length ? totalVolume / preds.length : 0
-  const totalBudget = budget.reduce(
-    (s: number, b: any) => s + (b.Trade_Spend_LKR ?? 0),
-    0
-  )
-  const wpShare =
-    validCoords.length > 0
-      ? ((wpCoords.length / validCoords.length) * 100).toFixed(1)
-      : "0"
-
-  const sorted = [...allOutletRows].sort(
-    (a: any, b: any) => (b.Trade_Spend_LKR ?? 0) - (a.Trade_Spend_LKR ?? 0)
-  )
-
-  const tableData = sorted.map((b: any) => ({
-    Outlet_ID: b.Outlet_ID,
-    Distributor_ID: b.Distributor_ID,
-    Outlet_Type: b.Outlet_Type,
-    Outlet_Size: b.Outlet_Size,
-    Cooler_Count: b.Cooler_Count,
-    constraint_flag: b.constraint_flag,
-    volume_cv: b.volume_cv,
-    historical_max_volume: b.historical_max_volume,
-    Maximum_Monthly_Liters: b.Maximum_Monthly_Liters,
-    incremental_volume: b.incremental_volume ?? 0,
-    Trade_Spend_LKR: b.Trade_Spend_LKR ?? 0,
-    Spend_Type: b.Spend_Type ?? "Not funded",
-  }))
-
-  const sortedByVolume = [...budget].sort(
-    (a: any, b: any) => a.Maximum_Monthly_Liters - b.Maximum_Monthly_Liters
-  )
-
-  const byType: Record<
-    string,
-    { count: number; totalSpend: number; totalVolume: number }
-  > = {}
-  budget.forEach((b: any) => {
-    const t = b.Outlet_Type || "Unknown"
-    if (!byType[t]) byType[t] = { count: 0, totalSpend: 0, totalVolume: 0 }
-    byType[t].count++
-    byType[t].totalSpend += b.Trade_Spend_LKR ?? 0
-    byType[t].totalVolume += b.Maximum_Monthly_Liters ?? 0
-  })
-  const outletTypeSummary = Object.entries(byType)
-    .map(([type, stats]) => ({
-      type,
-      count: stats.count,
-      avgSpendLKR: Math.round(stats.totalSpend / stats.count),
-      avgVolumeLmo: Math.round(stats.totalVolume / stats.count),
-      totalSpendLKR: Math.round(stats.totalSpend),
-    }))
-    .sort((a, b) => b.totalSpendLKR - a.totalSpendLKR)
-
-  const byDist: Record<
-    string,
-    { count: number; totalSpend: number; totalVolume: number }
-  > = {}
-  budget.forEach((b: any) => {
-    const d = b.Distributor_ID || "Unknown"
-    if (!byDist[d]) byDist[d] = { count: 0, totalSpend: 0, totalVolume: 0 }
-    byDist[d].count++
-    byDist[d].totalSpend += b.Trade_Spend_LKR ?? 0
-    byDist[d].totalVolume += b.Maximum_Monthly_Liters ?? 0
-  })
-  const distributorSummary = Object.entries(byDist)
-    .map(([distributor, stats]) => ({
-      distributor,
-      outlets: stats.count,
-      totalSpendLKR: Math.round(stats.totalSpend),
-      avgVolumeLmo: Math.round(stats.totalVolume / stats.count),
-    }))
-    .sort((a, b) => b.totalSpendLKR - a.totalSpendLKR)
-
-  const bySpendType: Record<string, number> = {}
-  budget.forEach((b: any) => {
-    const s = b.Spend_Type || "unknown"
-    bySpendType[s] = (bySpendType[s] || 0) + 1
-  })
-
-  const constrained = budget.filter((b: any) => b.constraint_flag === 1)
-
-  const pageContextData = {
-    pageName: "Overview Dashboard",
-    metrics: {
-      totalOutlets: coords.length,
-      westernProvinceOutlets: wpCoords.length,
-      westernProvinceShare: `${wpShare}%`,
-      avgPredictedVolume: Math.round(avgVolume),
-      totalAddressableVolume: Math.round(totalVolume),
-      budgetAllocatedOutlets: budget.length,
-      totalBudgetUtilized: Math.round(totalBudget),
-      budgetUtilizationPercentage: ((totalBudget / 5_000_000) * 100).toFixed(1),
-      constrainedOutlets: constrained.length,
-      spendTypeDistribution: bySpendType,
-    },
-    topOutletsBySpend: sorted.slice(0, 15).map((b: any) => ({
-      outletId: b.Outlet_ID,
-      type: b.Outlet_Type,
-      size: b.Outlet_Size,
-      distributor: b.Distributor_ID,
-      tradeSpendLKR: Math.round(b.Trade_Spend_LKR),
-      predictedVolumeLmo: Math.round(b.Maximum_Monthly_Liters),
-      incrementalVolumeLmo: Math.round(b.incremental_volume),
-      spendType: b.Spend_Type,
-    })),
-    worstOutletsByPotential: sortedByVolume.slice(0, 15).map((b: any) => ({
-      outletId: b.Outlet_ID,
-      type: b.Outlet_Type,
-      size: b.Outlet_Size,
-      distributor: b.Distributor_ID,
-      predictedVolumeLmo: Math.round(b.Maximum_Monthly_Liters),
-      tradeSpendLKR: Math.round(b.Trade_Spend_LKR),
-      constraintFlag: b.constraint_flag,
-    })),
-    topByIncrementalOpportunity: [...budget]
-      .sort((a: any, b: any) => b.incremental_volume - a.incremental_volume)
-      .slice(0, 15)
-      .map((b: any) => ({
-        outletId: b.Outlet_ID,
-        type: b.Outlet_Type,
-        distributor: b.Distributor_ID,
-        incrementalVolumeLmo: Math.round(b.incremental_volume),
-        predictedVolumeLmo: Math.round(b.Maximum_Monthly_Liters),
-        historicalMax: Math.round(b.historical_max_volume),
-      })),
+  const {
+    pageContextData,
+    metrics,
+    totalBudgetCap,
+    spendTypeSummary,
     outletTypeSummary,
     distributorSummary,
-  }
+    highlightedOutlets,
+  } = await getDashboardData()
+
+  const primarySpendType = spendTypeSummary[0]
+  const primaryOutletType = outletTypeSummary[0]
+  const primaryDistributor = distributorSummary[0]
+  const topSpendOutlet = highlightedOutlets.highestSpend[0]
+  const topIncrementalOutlet = highlightedOutlets.incrementalLeaders[0]
+  const efficientOutlet = highlightedOutlets.mostEfficient[0]
+  const constrainedOutlet = highlightedOutlets.constrainedPriority[0]
+
+  const spendTones = [
+    "bg-emerald-500",
+    "bg-sky-500",
+    "bg-amber-500",
+    "bg-rose-500",
+  ]
 
   return (
-    <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+    <div className="flex flex-col gap-6 py-4 md:py-6">
       <PageContextSetter data={pageContextData} />
+
+      <section className="px-4 lg:px-6">
+        <div className="overflow-hidden rounded-lg border bg-[radial-gradient(circle_at_20%_10%,rgba(16,185,129,0.18),transparent_32%),linear-gradient(135deg,rgba(14,165,233,0.14),rgba(255,255,255,0))]">
+          <div className="grid gap-6 p-5 md:grid-cols-[1.35fr_0.65fr] md:p-7">
+            <div className="flex flex-col justify-between gap-6">
+              <div className="space-y-4">
+                <Badge className="w-fit gap-1.5" variant="secondary">
+                  <Sparkles className="size-3.5" />
+                  AI budget overview
+                </Badge>
+                <div className="max-w-3xl space-y-3">
+                  <h1 className="text-3xl font-semibold tracking-normal md:text-4xl">
+                    Budget is concentrated on high-potential outlets with{" "}
+                    {primarySpendType?.type ?? "planned"} spend leading the mix.
+                  </h1>
+                  <p className="text-base leading-7 text-muted-foreground">
+                    The current allocation deploys{" "}
+                    {fmtMoney(metrics.totalBudget)} across{" "}
+                    {fmtNumber(metrics.totalFundedOutlets)} outlets, covering{" "}
+                    {pct(metrics.budgetUtilization * 100)} of the available{" "}
+                    {fmtMoney(totalBudgetCap)} budget. It is expected to unlock{" "}
+                    {fmtNumber(metrics.totalIncrementalVolume)} incremental
+                    liters at about{" "}
+                    {fmtMoney(Math.round(metrics.costPerIncrementalLiter))} per
+                    incremental liter.
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <Button asChild>
+                  <Link href="/allocations">
+                    View allocation table
+                    <ArrowRight className="size-4" />
+                  </Link>
+                </Button>
+                <Button asChild variant="outline">
+                  <Link href="/map">
+                    Open outlet map
+                    <MapPin className="size-4" />
+                  </Link>
+                </Button>
+              </div>
+            </div>
+
+            <div className="rounded-lg border bg-background/80 p-4 shadow-sm">
+              <p className="text-sm font-medium text-muted-foreground">
+                Allocation focus
+              </p>
+              <div className="mt-4 space-y-4">
+                <div>
+                  <p className="text-2xl font-semibold">
+                    {primaryOutletType?.type ?? "Outlet"} outlets
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    lead outlet-type spend with{" "}
+                    {fmtMoney(primaryOutletType?.totalSpendLKR ?? 0)}
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-md bg-muted/60 p-3">
+                    <p className="text-xs text-muted-foreground">
+                      Top distributor
+                    </p>
+                    <p className="mt-1 font-mono text-sm font-semibold">
+                      {primaryDistributor?.distributor ?? "Unknown"}
+                    </p>
+                  </div>
+                  <div className="rounded-md bg-muted/60 p-3">
+                    <p className="text-xs text-muted-foreground">
+                      Top-10 spend
+                    </p>
+                    <p className="mt-1 text-sm font-semibold">
+                      {pct(metrics.top10SpendShare)}
+                    </p>
+                  </div>
+                </div>
+                <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-900 dark:bg-amber-950/25 dark:text-amber-200">
+                  {fmtNumber(metrics.constrainedOutlets)} funded outlets are
+                  constraint-flagged, holding{" "}
+                  {fmtMoney(metrics.constrainedSpend)} of spend.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="grid gap-4 px-4 md:grid-cols-2 xl:grid-cols-4 lg:px-6">
+        <SummaryStat
+          label="Allocated budget"
+          value={fmtMoney(metrics.totalBudget)}
+          detail={`${pct(metrics.budgetUtilization * 100)} of budget pool`}
+          icon={<Banknote className="size-4" />}
+        />
+        <SummaryStat
+          label="Funded outlets"
+          value={fmtNumber(metrics.totalFundedOutlets)}
+          detail={`${fmtNumber(metrics.totalOutlets)} total outlets analyzed`}
+          icon={<Target className="size-4" />}
+        />
+        <SummaryStat
+          label="Incremental volume"
+          value={`${fmtNumber(metrics.totalIncrementalVolume)} L`}
+          detail={`${fmtMoney(Math.round(metrics.costPerIncrementalLiter))} per incremental L`}
+          icon={<TrendingUp className="size-4" />}
+        />
+        <SummaryStat
+          label="Western Province"
+          value={fmtNumber(metrics.westernProvinceOutlets)}
+          detail={`${pct(metrics.westernProvinceShare)} of mapped outlets`}
+          icon={<MapPin className="size-4" />}
+        />
+      </section>
+
+      <section className="grid gap-6 px-4 xl:grid-cols-[0.95fr_1.05fr] lg:px-6">
+        <div className="rounded-lg border bg-card p-5 shadow-xs">
+          <div className="mb-5 flex items-center justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-semibold tracking-normal">
+                Spend Mix
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                How the budget is split by activation type.
+              </p>
+            </div>
+            <Badge variant="outline">{spendTypeSummary.length} types</Badge>
+          </div>
+          <div className="space-y-5">
+            {spendTypeSummary.map((item, index) => (
+              <AllocationBar
+                key={item.type}
+                label={item.type}
+                value={`${fmtMoney(item.spendLKR)} | ${fmtNumber(item.count)} outlets`}
+                share={item.spendShare}
+                tone={spendTones[index % spendTones.length]}
+              />
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-lg border bg-card p-5 shadow-xs">
+          <div className="mb-5">
+            <h2 className="text-xl font-semibold tracking-normal">
+              Where The Money Goes
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Biggest outlet-type and distributor allocations.
+            </p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-3">
+              <p className="text-sm font-medium text-muted-foreground">
+                Outlet types
+              </p>
+              {outletTypeSummary.slice(0, 5).map((item) => (
+                <div
+                  key={item.type}
+                  className="flex items-center justify-between gap-3 rounded-md bg-muted/50 p-3"
+                >
+                  <div>
+                    <p className="font-medium">{item.type}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {fmtNumber(item.count)} outlets | {pct(item.spendShare)}
+                    </p>
+                  </div>
+                  <p className="text-sm font-semibold tabular-nums">
+                    {fmtMoney(item.totalSpendLKR)}
+                  </p>
+                </div>
+              ))}
+            </div>
+            <div className="space-y-3">
+              <p className="text-sm font-medium text-muted-foreground">
+                Distributors
+              </p>
+              {distributorSummary.slice(0, 5).map((item) => (
+                <div
+                  key={item.distributor}
+                  className="flex items-center justify-between gap-3 rounded-md bg-muted/50 p-3"
+                >
+                  <div>
+                    <p className="font-mono font-medium">{item.distributor}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {fmtNumber(item.outlets)} outlets | {pct(item.spendShare)}
+                    </p>
+                  </div>
+                  <p className="text-sm font-semibold tabular-nums">
+                    {fmtMoney(item.totalSpendLKR)}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="space-y-4 px-4 lg:px-6">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-semibold tracking-normal">
+              Highlighted Outlets
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              A quick read on the outlets that deserve attention before drilling
+              into the full table.
+            </p>
+          </div>
+          <Button asChild variant="outline" size="sm">
+            <Link href="/allocations">
+              Full outlet list
+              <ArrowRight className="size-4" />
+            </Link>
+          </Button>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {topSpendOutlet && (
+            <OutletHighlight
+              outlet={topSpendOutlet}
+              label="Predicted volume"
+              icon={<Trophy className="size-4" />}
+              accent="bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
+              metric={`${fmtNumber(
+                Math.round(topSpendOutlet.Maximum_Monthly_Liters ?? 0)
+              )} L`}
+            />
+          )}
+          {topIncrementalOutlet && (
+            <OutletHighlight
+              outlet={topIncrementalOutlet}
+              label="Incremental volume"
+              icon={<TrendingUp className="size-4" />}
+              accent="bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
+              metric={`+${fmtNumber(
+                Math.round(topIncrementalOutlet.incremental_volume ?? 0)
+              )} L`}
+            />
+          )}
+          {efficientOutlet && (
+            <OutletHighlight
+              outlet={efficientOutlet}
+              label="Efficiency"
+              icon={<Zap className="size-4" />}
+              accent="bg-sky-100 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300"
+              metric={`${fmtMoney(
+                Math.round(
+                  (efficientOutlet.Trade_Spend_LKR ?? 0) /
+                    (efficientOutlet.incremental_volume ?? 1)
+                )
+              )}/L`}
+            />
+          )}
+          {constrainedOutlet && (
+            <OutletHighlight
+              outlet={constrainedOutlet}
+              label="Risk flag"
+              icon={<CircleAlert className="size-4" />}
+              accent="bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300"
+              metric="Constraint active"
+            />
+          )}
+        </div>
+      </section>
+
+      <section className="px-4 lg:px-6">
+        <div className="grid gap-4 rounded-lg border bg-card p-5 shadow-xs md:grid-cols-[0.8fr_1.2fr]">
+          <div>
+            <div className="mb-3 flex size-10 items-center justify-center rounded-md bg-primary/10 text-primary">
+              <BadgeDollarSign className="size-5" />
+            </div>
+            <h2 className="text-xl font-semibold tracking-normal">
+              Recommended Focus
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+              Use the allocation table to validate individual outlet decisions,
+              but prioritize the budget conversation around concentration,
+              constraint risk, and activation-type balance.
+            </p>
+          </div>
+          <div className="grid gap-3 md:grid-cols-3">
+            <div className="rounded-md bg-muted/50 p-4">
+              <p className="text-sm font-semibold">Protect the leaders</p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Top outlets carry {pct(metrics.top10SpendShare)} of spend, so
+                monitor execution quality closely.
+              </p>
+            </div>
+            <div className="rounded-md bg-muted/50 p-4">
+              <p className="text-sm font-semibold">Resolve constraints</p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Constraint-flagged outlets hold{" "}
+                {pct(metrics.constrainedSpendShare)} of the allocation.
+              </p>
+            </div>
+            <div className="rounded-md bg-muted/50 p-4">
+              <p className="text-sm font-semibold">Tune spend mix</p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                {primarySpendType?.type ?? "The leading spend type"} receives
+                the largest share at {pct(primarySpendType?.spendShare ?? 0)}.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
 
       <div className="px-4 lg:px-6">
         <JitInsights contextData={pageContextData} />
-      </div>
-
-      <SectionCards
-        cards={
-          [
-            {
-              label: "Western Province",
-              value: fmtNumber(wpCoords.length),
-              sub: `${wpShare}% of total`,
-            },
-            {
-              label: "Avg Predicted Volume",
-              value: `${fmtNumber(Math.round(avgVolume))} L/mo`,
-            },
-            {
-              label: "Total Addressable Volume",
-              value: `${fmtNumber(Math.round(totalVolume))} L/mo`,
-            },
-            {
-              label: "Budget Allocations",
-              value: `${fmtNumber(budget.length)} outlets`,
-              extra: `${fmtMoney(Math.round(totalBudget))} total`,
-            },
-          ] satisfies CardData[]
-        }
-      />
-
-      <div className="px-4 lg:px-6">
-        <DataTable data={tableData} />
       </div>
     </div>
   )
