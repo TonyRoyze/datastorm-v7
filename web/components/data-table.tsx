@@ -84,7 +84,7 @@ export const budgetSchema = z.object({
   Maximum_Monthly_Liters: z.number().optional(),
   incremental_volume: z.number().optional(),
   Trade_Spend_LKR: z.number(),
-  Spend_Type: z.enum(["discount", "merchandising", "promotional"]),
+  Spend_Type: z.string(),
 })
 
 type OutletRow = z.infer<typeof budgetSchema>

@@ -20,6 +20,7 @@ import {
 const data = {
   navMain: [
     { title: "Overview", url: "/", icon: <LayoutDashboard /> },
+    { title: "Allocations", url: "/allocations", icon: <Banknote /> },
     { title: "Outlet Map", url: "/map", icon: <Map /> },
     { title: "Settings", url: "/settings", icon: <Settings /> },
   ],

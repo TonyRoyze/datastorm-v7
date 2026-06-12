@@ -30,5 +30,9 @@ const OutletMap = dynamic(() => import("@/components/outlet-map"), {
 })
 
 export default function MapCard({ outlets }: { outlets: Outlet[] }) {
-  return <OutletMap outlets={outlets} />
+  return (
+    <div className="h-[calc(100vh-13rem)] min-h-[560px] overflow-hidden rounded-md border bg-card">
+      <OutletMap outlets={outlets} />
+    </div>
+  )
 }
