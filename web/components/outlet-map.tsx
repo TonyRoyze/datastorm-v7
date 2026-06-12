@@ -536,7 +536,10 @@ export default function OutletMap({ outlets }: Props) {
       const response = await fetch("/api/outlet-insight", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ outlet: selectedOutlet }),
+        body: JSON.stringify({ 
+          outlet: selectedOutlet,
+          isHotspot: isHotspotOutlet(selectedOutlet, hotspotThreshold)
+        }),
       })
       const data = (await response.json()) as InsightResult
       setInsightCache((prev) =>

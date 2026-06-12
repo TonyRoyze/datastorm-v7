@@ -7,6 +7,7 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     outlet = body.outlet || {};
+    const isHotspot = body.isHotspot || false;
 
     const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) {
@@ -17,7 +18,7 @@ export async function POST(req: NextRequest) {
         outlet.historical_max_volume && outlet.Maximum_Monthly_Liters
           ? Math.min((outlet.historical_max_volume / outlet.Maximum_Monthly_Liters) * 100, 100).toFixed(1)
           : "unknown";
-      return NextResponse.json(buildFallback(outlet, utilizationRate));
+      return NextResponse.json(buildFallback(outlet, utilizationRate, isHotspot));
     }
 
     const groq = new Groq({ apiKey });
@@ -47,6 +48,9 @@ Incremental Volume Opportunity: ${outlet.incremental_volume} L/mo
 Current Utilization Rate: ${utilizationRate}% (historical vs predicted potential)
 Recommended Trade Spend: LKR ${outlet.Trade_Spend_LKR?.toFixed(0)}
 Spend Type: ${outlet.Spend_Type}
+Is Hotspot: ${isHotspot ? "Yes" : "No"}
+
+${isHotspot ? "IMPORTANT: Since this outlet is a high-potential hotspot, you must explicitly mention nearby Points of Interest (such as schools, offices, transit hubs, etc.) as part of the positive drivers contributing to its high demand and potential." : ""}
 
 Respond ONLY with this JSON structure (no other text):
 {
@@ -76,7 +80,7 @@ Respond ONLY with this JSON structure (no other text):
       parsed = JSON.parse(cleaned);
     } catch {
       // If model returned non-JSON, build a fallback
-      parsed = buildFallback(outlet, utilizationRate);
+      parsed = buildFallback(outlet, utilizationRate, isHotspot);
     }
 
     return NextResponse.json(parsed);
@@ -86,12 +90,13 @@ Respond ONLY with this JSON structure (no other text):
     return NextResponse.json(buildFallback(outlet, 
       outlet.historical_max_volume && outlet.Maximum_Monthly_Liters
         ? Math.min((outlet.historical_max_volume / outlet.Maximum_Monthly_Liters) * 100, 100).toFixed(1)
-        : "unknown"
+        : "unknown",
+      isHotspot
     ));
   }
 }
 
-function buildFallback(outlet: any, utilizationRate: string) {
+function buildFallback(outlet: any, utilizationRate: string, isHotspot: boolean = false) {
   const size = outlet.Outlet_Size || "Unknown";
   const type = outlet.Outlet_Type || "Outlet";
   const predicted = outlet.Maximum_Monthly_Liters?.toLocaleString() || "N/A";
@@ -99,13 +104,19 @@ function buildFallback(outlet: any, utilizationRate: string) {
   const isConstrained = outlet.constraint_flag === 1;
   const coolers = outlet.Cooler_Count || 0;
 
+  const positiveDrivers = [
+    `${size} outlet size supports high throughput capacity`,
+    `${coolers} cooler unit${coolers !== 1 ? "s" : ""} enabling strong cold-chain distribution`,
+    `Incremental volume of ${incremental} L/mo signals significant untapped demand`,
+  ];
+
+  if (isHotspot) {
+    positiveDrivers.push("High footfall catchment area with nearby schools and office complexes driving steady daytime demand");
+  }
+
   return {
     verdict: `This ${size.toLowerCase()} ${type.toLowerCase()} (${outlet.Outlet_ID}) has a predicted sales potential of ${predicted} L/mo, representing an incremental opportunity of ${incremental} L/mo above historical baseline. ${isConstrained ? "The outlet is currently flagged as supply-constrained, limiting its ability to reach full potential." : "The outlet shows no supply constraints and has strong headroom for growth."}`,
-    positiveDrivers: [
-      `${size} outlet size supports high throughput capacity`,
-      `${coolers} cooler unit${coolers !== 1 ? "s" : ""} enabling strong cold-chain distribution`,
-      `Incremental volume of ${incremental} L/mo signals significant untapped demand`,
-    ],
+    positiveDrivers,
     negativeConstraints: [
       isConstrained
         ? "Supply/capacity constraint flag active — requires inventory review"
