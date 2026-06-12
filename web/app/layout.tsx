@@ -26,7 +26,7 @@ export default function RootLayout({
         <ThemeProvider>
           <PageContextProvider>
             <TooltipProvider delayDuration={0}>
-              <AppShell>{children}</AppShell>
+              <AppShell isOffline={!process.env.GEMINI_API_KEY && !process.env.GROQ_API_KEY}>{children}</AppShell>
               <Chatbot />
             </TooltipProvider>
           </PageContextProvider>

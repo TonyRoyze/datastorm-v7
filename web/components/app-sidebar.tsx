@@ -26,7 +26,7 @@ const data = {
   ],
 }
 
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+export function AppSidebar({ isOffline, ...props }: React.ComponentProps<typeof Sidebar> & { isOffline?: boolean }) {
   return (
     <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader>
@@ -37,7 +37,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               className="data-[slot=sidebar-menu-button]:p-1.5!"
             >
               <Link href="/">
-                <Sparkles className="size-5!" />
+                {!isOffline && <Sparkles className="size-5!" />}
                 <span className="text-base font-semibold">Datastorm</span>
               </Link>
             </SidebarMenuButton>

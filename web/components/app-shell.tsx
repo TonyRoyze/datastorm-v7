@@ -4,7 +4,7 @@ import { AppSidebar } from "@/components/app-sidebar"
 import { SiteHeader } from "@/components/site-header"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 
-export default function AppShell({ children }: { children: React.ReactNode }) {
+export default function AppShell({ children, isOffline }: { children: React.ReactNode, isOffline?: boolean }) {
   return (
     <SidebarProvider
       style={
@@ -14,7 +14,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         } as React.CSSProperties
       }
     >
-      <AppSidebar variant="inset" />
+      <AppSidebar variant="inset" isOffline={isOffline} />
       <SidebarInset>
         <SiteHeader />
         <div className="flex min-h-0 flex-1 flex-col">
