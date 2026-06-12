@@ -1,6 +1,7 @@
 "use client"
 import Link from "next/link"
 import { NavMain } from "@/components/nav-main"
+import { usePageContext } from "@/components/page-context"
 import {
   Sidebar,
   SidebarContent,
@@ -27,6 +28,9 @@ const data = {
 }
 
 export function AppSidebar({ isOffline, ...props }: React.ComponentProps<typeof Sidebar> & { isOffline?: boolean }) {
+  const { aiMode } = usePageContext();
+  const effectiveOffline = isOffline || aiMode === "gemini-offline";
+
   return (
     <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader>
@@ -37,7 +41,7 @@ export function AppSidebar({ isOffline, ...props }: React.ComponentProps<typeof 
               className="data-[slot=sidebar-menu-button]:p-1.5!"
             >
               <Link href="/">
-                {!isOffline && <Sparkles className="size-5!" />}
+                {!effectiveOffline && <Sparkles className="size-5!" />}
                 <span className="text-base font-semibold">Datastorm</span>
               </Link>
             </SidebarMenuButton>

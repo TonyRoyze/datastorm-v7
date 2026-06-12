@@ -13,7 +13,6 @@ import {
   Zap,
 } from "lucide-react"
 
-import { JitInsights } from "@/components/jit-insights"
 import { PageContextSetter } from "@/components/page-context-setter"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -458,9 +457,6 @@ export default async function OverviewPage() {
         </div>
       </section>
 
-      <div className="px-4 lg:px-6">
-        <JitInsights contextData={pageContextData} />
-      </div>
     </div>
   )
 }
