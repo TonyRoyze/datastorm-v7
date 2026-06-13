@@ -611,7 +611,18 @@ print("STEP 9: SHAP Analysis")
 print("=" * 60)
 
 explainer = shap.TreeExplainer(model)
-shap_values = explainer.shap_values(X_scaled)
+raw_shap_values = explainer.shap_values(X_scaled)
+if isinstance(raw_shap_values, list):
+    shap_values = raw_shap_values[0]
+else:
+    shap_values = np.asarray(raw_shap_values)
+    if shap_values.ndim == 3:
+        shap_values = shap_values[:, :, 0]
+
+expected_value = explainer.expected_value
+if isinstance(expected_value, list):
+    expected_value = expected_value[0]
+expected_value = float(np.asarray(expected_value).reshape(-1)[0])
 
 # Plot 1: SHAP summary beeswarm
 shap.summary_plot(shap_values, X_scaled, feature_names=feature_cols, show=False)
@@ -634,7 +645,7 @@ for label, idx in [("low_demand", low_idx), ("high_demand", high_idx)]:
     shap.waterfall_plot(
         shap.Explanation(
             values=shap_values[idx],
-            base_values=explainer.expected_value,
+            base_values=expected_value,
             data=X_scaled[idx],
             feature_names=feature_cols,
         ),
