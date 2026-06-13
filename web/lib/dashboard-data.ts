@@ -47,21 +47,25 @@ export async function getDashboardData() {
     preds.map((p) => [p.Outlet_ID, p.Maximum_Monthly_Liters ?? 0])
   )
   const budgetByOutlet = new Map(
-    budget.map((b) => [b.Outlet_ID, b.Trade_Spend_LKR ?? 0])
-  )
-  const spendTypeByOutlet = new Map(
-    budget.map((b) => [b.Outlet_ID, b.Spend_Type ?? "Not funded"])
+    budget.map((b) => [b.Outlet_ID, b])
   )
 
   const allOutletRows: DataRow[] =
     outlets.length > 0
       ? outlets.map((outlet) => ({
           ...outlet,
-          Maximum_Monthly_Liters: outlet.Maximum_Monthly_Liters ?? 0,
-          Trade_Spend_LKR: outlet.Trade_Spend_LKR ?? 0,
+          ...(budgetByOutlet.get(outlet.Outlet_ID) ?? {}),
+          Maximum_Monthly_Liters:
+            outlet.Maximum_Monthly_Liters ??
+            budgetByOutlet.get(outlet.Outlet_ID)?.Maximum_Monthly_Liters ??
+            0,
+          Trade_Spend_LKR:
+            budgetByOutlet.get(outlet.Outlet_ID)?.Trade_Spend_LKR ??
+            outlet.Trade_Spend_LKR ??
+            0,
           Spend_Type:
+            budgetByOutlet.get(outlet.Outlet_ID)?.Spend_Type ??
             outlet.Spend_Type ??
-            spendTypeByOutlet.get(outlet.Outlet_ID) ??
             "Not funded",
         }))
       : coords.map((coord) => ({
@@ -69,8 +73,11 @@ export async function getDashboardData() {
           Latitude: coord.Latitude,
           Longitude: coord.Longitude,
           Maximum_Monthly_Liters: predictionByOutlet.get(coord.Outlet_ID) ?? 0,
-          Trade_Spend_LKR: budgetByOutlet.get(coord.Outlet_ID) ?? 0,
-          Spend_Type: spendTypeByOutlet.get(coord.Outlet_ID) ?? "Not funded",
+          ...(budgetByOutlet.get(coord.Outlet_ID) ?? {}),
+          Trade_Spend_LKR:
+            budgetByOutlet.get(coord.Outlet_ID)?.Trade_Spend_LKR ?? 0,
+          Spend_Type:
+            budgetByOutlet.get(coord.Outlet_ID)?.Spend_Type ?? "Not funded",
         }))
 
   const validCoords = coords.filter(
